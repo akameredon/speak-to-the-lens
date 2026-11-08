@@ -61,3 +61,16 @@ export function aiRequestTooLarge(request: Request, maxBytes: number) {
 export function aiRequestSignal(request: Request, timeoutMs = 45_000): AbortSignal {
   return AbortSignal.any([request.signal, AbortSignal.timeout(timeoutMs)]);
 }
+
+
+/** Browser AI calls must originate from the same host as the app. */
+export function isSameOriginAiRequest(request: Request): boolean {
+  const origin = request.headers.get("origin");
+  const host = request.headers.get("host");
+  if (!origin || !host) return false;
+  try {
+    return new URL(origin).host.toLowerCase() === host.toLowerCase();
+  } catch {
+    return false;
+  }
+}
