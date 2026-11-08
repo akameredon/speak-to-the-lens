@@ -96,6 +96,15 @@ export function currentDeliverySegment(map: DeliveryMap | null, position: number
   return map.segments.find((segment) => position >= segment.startWord && position < segment.endWord) ?? null;
 }
 
+/** Calculate a predictable auto-scroll delay from the selected speed and delivery cue. */
+export function autoAdvanceDelay(speed: number, pace: DeliveryPace = "natural", pauseAfterMs = 0): number {
+  const safeSpeed = Math.min(10, Math.max(1, Number.isFinite(speed) ? speed : 5));
+  const wordsPerMinute = 70 + safeSpeed * 16;
+  const paceScale = pace === "slow" ? 1.45 : pace === "measured" ? 1.18 : pace === "brisk" ? 0.82 : 1;
+  const pause = Math.min(2500, Math.max(0, Number.isFinite(pauseAfterMs) ? pauseAfterMs : 0));
+  return Math.round((60000 / wordsPerMinute) * paceScale + pause);
+}
+
 /** Return the next pre-planned speaking-group boundary. */
 export function nextDeliveryPosition(map: DeliveryMap | null, words: string[], position: number): number {
   if (map) {
