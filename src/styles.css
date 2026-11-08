@@ -201,3 +201,41 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+
+@layer components {
+  .app-page {
+    @apply flex h-full min-h-0 flex-col gap-4 overflow-y-auto px-4 pb-6;
+    padding-top: calc(env(safe-area-inset-top) + 1.1rem);
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--foreground) 20%, transparent) transparent;
+  }
+  .app-page-title {
+    @apply text-[1.65rem] font-bold tracking-[-0.045em];
+    letter-spacing: -0.045em;
+  }
+  .app-panel {
+    @apply rounded-2xl border border-border bg-card;
+    box-shadow: 0 8px 28px oklch(0 0 0 / 12%);
+  }
+  .app-field {
+    @apply w-full rounded-xl border border-border bg-background px-3.5 py-3 text-sm text-foreground outline-none transition-colors;
+    min-height: 46px;
+  }
+  .app-field:focus-visible {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 20%, transparent);
+  }
+  .app-primary {
+    @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-primary-foreground shadow-sm transition-all disabled:cursor-not-allowed disabled:opacity-45;
+  }
+  .app-secondary {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border bg-secondary px-4 py-2.5 text-sm font-semibold text-secondary-foreground transition-colors;
+  }
+  .app-nav {
+    background: color-mix(in oklab, var(--background) 92%, transparent);
+    border-top: 1px solid var(--color-border);
+    backdrop-filter: blur(20px) saturate(1.2);
+    -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  }
+}
