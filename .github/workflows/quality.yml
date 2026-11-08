@@ -38,6 +38,7 @@ jobs:
           src/routes/api/delivery.ts
           src/lib/delivery.ts
           src/lib/ai-guard.ts
+          src/lib/studio-performance.ts
           src/test/delivery.test.ts
           src/test/store.test.ts
           src/test/follow.test.ts
