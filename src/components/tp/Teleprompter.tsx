@@ -323,7 +323,7 @@ export default function Teleprompter() {
         {tab === "takes" && <Takes takes={takes} refresh={refreshTakes} onOpen={setReview} />}
       </div>
 
-      <nav className="flex border-t border-border bg-background pb-[env(safe-area-inset-bottom)]">
+      <nav aria-label="Main navigation" className="flex border-t border-border bg-background pb-[env(safe-area-inset-bottom)]">
         {([
           ["film", "Film", Camera],
           ["script", "Script", FileText],
@@ -332,7 +332,12 @@ export default function Teleprompter() {
         ] as const).map(([k, label, Icon]) => (
           <button
             key={k}
-            onClick={() => { if (recording) return toast("Stop recording first."); setTab(k); }}
+            onClick={() => {
+              if (recording) return toast("Stop recording first.");
+              if (k !== "film" && running) stopReading();
+              setTab(k);
+            }}
+            aria-current={tab === k ? "page" : undefined}
             className={`flex flex-1 flex-col items-center gap-1 py-2.5 text-xs font-medium ${tab === k ? "text-primary" : "text-muted-foreground"}`}
           >
             <Icon className="h-5 w-5" />
