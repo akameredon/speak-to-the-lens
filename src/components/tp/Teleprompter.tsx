@@ -51,8 +51,12 @@ export default function Teleprompter() {
   useEffect(() => saveProfile(profile), [profile]);
   useEffect(() => {
     const t = setTimeout(() => {
-      saveScript({ ...script, savedAt: Date.now() });
-      setScripts(loadScripts());
+      try {
+        saveScript({ ...script, savedAt: Date.now() });
+        setScripts(loadScripts());
+      } catch {
+        setNotice({ title: "Script could not be saved", body: "This browser may be low on storage or have local storage disabled. Copy your script before leaving this page." });
+      }
     }, 400);
     return () => clearTimeout(t);
   }, [script]);
@@ -183,6 +187,7 @@ export default function Teleprompter() {
       setNotice({ title: "Recording interrupted", body: "The browser reported a recording error. Review any captured take if it appears, and download it before closing." });
     };
     r.onstop = () => {
+      setRecording(false);
       const fmt = r.mimeType || mime || "video/webm";
       const blob = new Blob(chunksRef.current, { type: fmt });
       const duration = Math.max(0, (Date.now() - startRef.current) / 1000);
@@ -820,7 +825,11 @@ function Takes({ takes, refresh, onOpen }: { takes: Recording[]; refresh: () => 
                 <p className="text-xs font-medium text-muted-foreground">{new Date(t.createdAt).toLocaleString()} · {fmtTime(t.duration)} · {extFor(t.format).toUpperCase()}</p>
               </div>
               <button aria-label="Download" onClick={() => download(t)} className="rounded-full bg-secondary p-2.5"><Download className="h-4 w-4" /></button>
-              <button aria-label="Delete" onClick={async () => { if (confirm("Delete this take?")) { await deleteRecording(t.id); refresh(); } }} className="rounded-full bg-secondary p-2.5 text-primary"><Trash2 className="h-4 w-4" /></button>
+              <button aria-label="Delete" onClick={async () => {
+                if (!confirm("Delete this take?")) return;
+                try { await deleteRecording(t.id); await refresh(); }
+                catch { toast("This take could not be deleted. Try again after reloading."); }
+              }} className="rounded-full bg-secondary p-2.5 text-primary"><Trash2 className="h-4 w-4" /></button>
             </li>
           ))}
         </ul>
