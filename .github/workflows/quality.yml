@@ -46,6 +46,7 @@ jobs:
           src/test/recordings.test.ts
           src/test/phrase-ui.test.tsx
           src/test/navigation.test.tsx
+          src/test/recording-flow.test.tsx
           --rule 'prettier/prettier: off'
 
       - name: Build for production
