@@ -1,14 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import Teleprompter from "@/components/tp/Teleprompter";
 
 const stopTrack = vi.fn();
+const getUserMedia = vi.fn();
 
 beforeEach(() => {
   localStorage.clear();
+  getUserMedia.mockReset().mockResolvedValue({ getTracks: () => [{ stop: stopTrack }] });
   Object.defineProperty(navigator, "mediaDevices", {
     configurable: true,
-    value: { getUserMedia: vi.fn().mockResolvedValue({ getTracks: () => [{ stop: stopTrack }] }) },
+    value: { getUserMedia },
   });
   Object.defineProperty(HTMLMediaElement.prototype, "srcObject", {
     configurable: true,
@@ -22,6 +24,14 @@ afterEach(() => {
 });
 
 describe("main navigation", () => {
+  it("keeps camera and microphone off until the speaker explicitly enables them", async () => {
+    render(<Teleprompter />);
+    expect(getUserMedia).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Enable camera & microphone" }));
+    await waitFor(() => expect(getUserMedia).toHaveBeenCalledTimes(1));
+  });
+
   it("keeps a clear accessible active state across the four product screens", () => {
     render(<Teleprompter />);
     const film = screen.getByRole("button", { name: "Film" });
