@@ -56,7 +56,9 @@ export default function Teleprompter() {
     }, 400);
     return () => clearTimeout(t);
   }, [script]);
-  const refreshTakes = useCallback(() => listRecordings().then(setTakes).catch(() => setTakes([])), []);
+  const refreshTakes = useCallback(() => listRecordings().then(setTakes).catch(() => {
+    setNotice({ title: "Recordings could not be loaded", body: "This browser could not read saved takes from local storage. Do not clear this site's data; try reloading the page first." });
+  }), []);
   useEffect(() => void refreshTakes(), [refreshTakes]);
   useEffect(() => setPos((p) => Math.min(p, words.length)), [words.length]);
 
@@ -131,7 +133,10 @@ export default function Teleprompter() {
 
   const startReading = useCallback(() => {
     const mode = profile.mode === "voice" && !speechSupported() ? "manual" : profile.mode;
-    if (profile.mode === "voice" && mode === "manual") toast("Voice following isn't supported here — using tap to advance.");
+    if (profile.mode === "voice" && mode === "manual") {
+      setProfile((current) => ({ ...current, mode: "manual" }));
+      toast("Voice following isn't supported here — tap to advance is ready.");
+    }
     setActiveMode(mode);
     if (mode === "voice") speech.start();
     setRunning(true);
@@ -303,7 +308,7 @@ export default function Teleprompter() {
         {tab === "write" && (
           <Writer
             onStream={(t) => { setScript((s) => ({ ...s, body: t })); setDeliveryMap(null); }}
-            onStart={(topic) => { setScript((s) => ({ ...s, title: topic.slice(0, 48) || s.title, body: "" })); setTab("script"); setPos(0); }}
+            onStart={(topic) => { setScript((s) => ({ ...s, title: topic.slice(0, 48) || s.title })); setTab("script"); setPos(0); }}
           />
         )}
         {tab === "takes" && <Takes takes={takes} refresh={refreshTakes} onOpen={setReview} />}
@@ -331,7 +336,16 @@ export default function Teleprompter() {
         <Review
           rec={review}
           onClose={() => setReview(null)}
-          onSaved={async (r) => { await putRecording({ ...r, saved: true }); setReview({ ...r, saved: true }); refreshTakes(); toast("Saved to My Recordings"); }}
+          onSaved={async (r) => {
+            try {
+              await putRecording({ ...r, saved: true });
+              setReview({ ...r, saved: true });
+              await refreshTakes();
+              toast("Saved to My Recordings");
+            } catch {
+              toast("This take couldn't be saved. Download or share it before closing this review.");
+            }
+          }}
         />
       )}
       {help && <AudioHelp onClose={() => setHelp(false)} />}
@@ -392,7 +406,10 @@ function FilmSurface(p: {
   useEffect(() => {
     const box = boxRef.current, el = curRef.current;
     if (!box || !el) return;
-    box.scrollTo({ top: el.offsetTop - box.clientHeight * 0.3, behavior: "smooth" });
+    const boxRect = box.getBoundingClientRect();
+    const phraseRect = el.getBoundingClientRect();
+    const phraseTop = phraseRect.top - boxRect.top + box.scrollTop;
+    box.scrollTo({ top: Math.max(0, phraseTop - box.clientHeight * 0.3), behavior: "smooth" });
   }, [p.pos, p.profile.fontSize]);
 
   return (
@@ -632,7 +649,7 @@ function ScriptEditor({
     let last = before;
     const r = await streamScript({ kind: "polish", text: before }, (t) => { last = t; setScript({ ...script, body: t }); }).catch(() => ({ text: "", error: "Couldn't reach the writer." }));
     setBusy(false);
-    if (r.error) { toast(r.error); if (!r.text) setScript({ ...script, body: before }); }
+    if (r.error) { setScript({ ...script, body: before }); toast(r.error); }
     else if (last) toast("Polished for reading aloud");
   };
   return (
@@ -719,12 +736,21 @@ function Writer({ onStream, onStart }: { onStream: (t: string) => void; onStart:
   const [topic, setTopic] = useState("");
   const [tone, setTone] = useState("Friendly");
   const [length, setLength] = useState<"30s" | "60s" | "2m">("60s");
+  const [draft, setDraft] = useState("");
+  const [writing, setWriting] = useState(false);
   const go = async () => {
-    if (!topic.trim()) return toast("Tell the writer what the video is about.");
+    if (!topic.trim() || writing) return;
+    setWriting(true);
+    setDraft("");
+    const r = await streamScript({ kind: "write", topic: topic.trim(), tone, length }, setDraft).catch(() => ({ text: "", error: "Couldn't reach the writer." }));
+    setWriting(false);
+    if (r.error) {
+      toast(r.error);
+      return;
+    }
+    onStream(r.text);
     onStart(topic.trim());
-    const r = await streamScript({ kind: "write", topic, tone, length }, onStream).catch(() => ({ text: "", error: "Couldn't reach the writer." }));
-    if (r.error) toast(r.error);
-    else toast("Script ready — tap Film to read it");
+    toast("Script ready — tap Film to read it");
   };
   return (
     <div className="flex h-full flex-col gap-5 overflow-y-auto p-4 pt-[calc(env(safe-area-inset-top)+1rem)]">
@@ -739,8 +765,9 @@ function Writer({ onStream, onStart }: { onStream: (t: string) => void; onStart:
       </label>
       <Chips label="Tone" options={TONES.map((t) => [t, t] as const)} value={tone} onChange={setTone} />
       <Chips label="Length" options={LENGTHS} value={length} onChange={(v) => setLength(v as typeof length)} />
-      <button onClick={go} className="mt-auto flex items-center justify-center gap-2 rounded-full bg-primary py-4 text-base font-extrabold text-primary-foreground">
-        <Sparkles className="h-5 w-5" /> Write my script
+      {draft && <div className="max-h-[35vh] overflow-y-auto rounded-2xl bg-card p-4 text-sm leading-relaxed">{draft}</div>}
+      <button onClick={go} disabled={writing || !topic.trim()} className="mt-auto flex items-center justify-center gap-2 rounded-full bg-primary py-4 text-base font-extrabold text-primary-foreground disabled:opacity-50">
+        <Sparkles className="h-5 w-5" /> {writing ? "Writing…" : "Write my script"}
       </button>
     </div>
   );
@@ -765,7 +792,7 @@ function download(r: Recording) {
   a.href = url;
   a.download = `${r.title.replace(/[^\w\- ]+/g, "").trim() || "take"}.${extFor(r.format)}`;
   a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 function Takes({ takes, refresh, onOpen }: { takes: Recording[]; refresh: () => void; onOpen: (r: Recording) => void }) {
   return (
@@ -847,7 +874,7 @@ function AudioHelp({ onClose }: { onClose: () => void }) {
     ["Voice Isolation", "Great in kitchens and streets. Avoid it when music or a second voice should be heard."],
     ["Android", "Turn on noise reduction in your browser's site settings if offered, and close other apps using the mic."],
     ["Distance", "Hold the phone at arm's length, about 30–50 cm. Closer sounds boomy; farther sounds echoey."],
-    ["Voice following", "Needs microphone access and a browser with speech recognition (Chrome, Safari). If it stops, auto scroll takes over."],
+    ["Voice following", "Needs microphone access and a browser with speech recognition. If recognition is unavailable or stops, the app returns to Tap to advance so your script never starts moving on its own."],
     ["Storage", "Takes are saved only in this browser. Clearing site data removes them — download anything you want to keep."],
   ];
   return (
