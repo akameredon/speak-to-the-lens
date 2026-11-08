@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { aiRequestTooLarge, checkAiRateLimit } from "@/lib/ai-guard";
 
 describe("AI request protection", () => {
