@@ -642,13 +642,13 @@ function ScriptEditor({
         </label>
         <label className="block space-y-1">
           <span className="text-xs font-semibold text-muted-foreground">Audience</span>
-          <input value={audience} onChange={(e) => { setAudience(e.target.value); onDeliveryMap(null); }} maxLength={100} className="w-full rounded-xl bg-background px-3 py-2 text-sm" placeholder="e.g. First-time viewers" />
+          <input value={audience} onChange={(e) => { setAudience(e.target.value); onDeliveryMap(null); }} maxLength={100} className="w-full rounded-xl bg-background px-3 py-2 text-sm" placeholder="e.g. Senior leadership, clients, investors, staff" />
         </label>
         <div className="grid grid-cols-2 gap-2">
           <label className="space-y-1">
             <span className="text-xs font-semibold text-muted-foreground">Setting</span>
             <select value={setting} onChange={(e) => { setSetting(e.target.value); onDeliveryMap(null); }} className="w-full rounded-xl bg-background px-2 py-2 text-xs">
-              {["Camera / phone video", "Small room", "Classroom", "Church / auditorium", "Large stage", "Interview"].map((item) => <option key={item}>{item}</option>)}
+              {["Camera / phone video", "Corporate office / boardroom", "Executive presentation", "Client meeting", "Conference / keynote stage", "Training / workshop", "Small room", "Classroom", "Church / auditorium", "Large stage", "Interview"].map((item) => <option key={item}>{item}</option>)}
             </select>
           </label>
           <label className="space-y-1">
