@@ -1,3 +1,5 @@
+import { advance } from "@/lib/follow";
+
 export const DELIVERY_STYLES = [
   "social-camera", "inspirational", "testimony-storytelling", "teaching",
   "persuasive", "formal", "sermon-prayer", "debate-interview",
@@ -120,4 +122,18 @@ export function previousDeliveryPosition(map: DeliveryMap | null, words: string[
     if (/[.!?][”’"')\]]*$/.test(words[i])) return i + 1;
   }
   return 0;
+}
+
+/** Voice following keeps the active phrase highlighted until its ending words are recognised. */
+export function advanceRecognizedDeliveryGroup(
+  words: string[],
+  map: DeliveryMap | null,
+  position: number,
+  spoken: string,
+): number {
+  if (!map) return advance(words, position, spoken);
+  const current = currentDeliverySegment(map, position);
+  if (!current) return position;
+  const matched = advance(words, position, spoken, Math.max(12, current.endWord - position));
+  return matched >= current.endWord ? current.endWord : position;
 }
