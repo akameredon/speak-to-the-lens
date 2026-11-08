@@ -12,7 +12,7 @@ import {
 import { speechSupported, useSpeech } from "./useSpeech";
 import { streamScript } from "./ai";
 import {
-  currentDeliverySegment, nextDeliveryPosition, previousDeliveryPosition, DELIVERY_STYLES, DELIVERY_STYLE_LABELS,
+  advanceRecognizedDeliveryGroup, currentDeliverySegment, nextDeliveryPosition, previousDeliveryPosition, DELIVERY_STYLES, DELIVERY_STYLE_LABELS,
   type DeliveryMap, type DeliveryStyle,
 } from "@/lib/delivery";
 
@@ -100,7 +100,7 @@ export default function Teleprompter() {
 
   // voice
   const speech = useSpeech(
-    (text) => setPos((p) => advance(words, p, text)),
+    (text) => setPos((p) => advanceRecognizedDeliveryGroup(words, deliveryMap, p, text)),
     (reason) => {
       setActiveMode("auto");
       toast(reason === "not-allowed" || reason === "service-not-allowed"
