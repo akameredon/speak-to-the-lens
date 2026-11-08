@@ -15,6 +15,7 @@ type StudioMetrics = {
 const metrics: StudioMetrics = { cls: 0 };
 let started = false;
 let interactionSequence = 0;
+const interactionDurations = new Map<number, number>();
 
 function observe(type: string, callback: (entry: PerformanceEntry) => void) {
   if (typeof PerformanceObserver === "undefined") return;
@@ -51,7 +52,11 @@ export function startStudioPerformanceMonitoring() {
   });
   observe("event", (entry) => {
     const event = entry as PerformanceEntry & { interactionId?: number };
-    if (event.interactionId) metrics.inp = Math.max(metrics.inp ?? 0, event.duration);
+    if (!event.interactionId) return;
+    const previous = interactionDurations.get(event.interactionId) ?? 0;
+    interactionDurations.set(event.interactionId, Math.max(previous, event.duration));
+    const sorted = [...interactionDurations.values()].sort((a, b) => a - b);
+    metrics.inp = sorted[Math.ceil(sorted.length * 0.75) - 1];
   });
 }
 
@@ -78,7 +83,7 @@ export function getStudioPerformanceReport() {
     `Time to first byte: ${ms(metrics.ttfb)}`,
     `First contentful paint: ${ms(metrics.fcp)}`,
     `Largest contentful paint: ${ms(metrics.lcp)}`,
-    `Interaction to next paint (observed max): ${ms(metrics.inp)}`,
+    `Interaction to next paint (session estimate): ${ms(metrics.inp)}`,
     `Cumulative layout shift: ${metrics.cls.toFixed(3)}`,
     `Last screen change: ${ms(metrics.lastScreenChange)}`,
     "",
