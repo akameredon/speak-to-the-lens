@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
+import { aiRateLimitResponse, aiRequestSignal, aiRequestTooLarge, checkAiRateLimit, isSameOriginAiRequest } from "@/lib/ai-guard";
 
 const Body = z.discriminatedUnion("kind", [
   z.object({
@@ -27,7 +28,15 @@ export const Route = createFileRoute("/api/script")({
           { headers: { "Cache-Control": "no-store" } },
         ),
       POST: async ({ request }) => {
-        const parsed = Body.safeParse(await request.json().catch(() => null));
+        const rate = checkAiRateLimit(request, "script", 8);
+        if (!rate.allowed) return aiRateLimitResponse(rate.retryAfterSeconds);
+        if (!isSameOriginAiRequest(request)) return new Response("This AI endpoint only accepts requests from the app.", { status: 403 });
+        if (aiRequestTooLarge(request, 12_000)) return new Response("This request is too large.", { status: 413 });
+        const rawBody = await request.text().catch(() => "");
+        if (new TextEncoder().encode(rawBody).byteLength > 12_000) return new Response("This request is too large.", { status: 413 });
+        let input: unknown;
+        try { input = JSON.parse(rawBody); } catch { return new Response("Invalid request", { status: 400 }); }
+        const parsed = Body.safeParse(input);
         if (!parsed.success) return new Response("Invalid request", { status: 400 });
 
         const apiKey = process.env.GROQ_API_KEY;
@@ -44,6 +53,7 @@ export const Route = createFileRoute("/api/script")({
             : `Polish this script for reading aloud. Keep its meaning and roughly its length, simplify wording and break long sentences:\n\n${d.text}`;
 
         let upstream: Response;
+        const signal = aiRequestSignal(request);
         try {
           upstream = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
@@ -61,10 +71,13 @@ export const Route = createFileRoute("/api/script")({
                 { role: "user", content: prompt },
               ],
             }),
-            signal: request.signal,
+            signal,
           });
         } catch {
-          return new Response("Groq could not be reached. Check your connection and try again.", { status: 502 });
+          return new Response(
+            request.signal.aborted ? "The request was cancelled." : "The AI request timed out. Please try again.",
+            { status: request.signal.aborted ? 499 : 504, headers: { "Cache-Control": "no-store" } },
+          );
         }
 
         if (!upstream.ok) {
