@@ -47,7 +47,7 @@ export async function streamScript(
     reader.releaseLock();
   }
 
-  if (!full.trim()) return { text: "", error: "Gemini returned an empty response. Please try again." };
+  if (!full.trim()) return { text: "", error: "Groq returned an empty response. Please try again." };
   onText(full.trim());
   return { text: full.trim() };
 }
