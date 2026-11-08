@@ -220,12 +220,14 @@ export default function Teleprompter() {
     setScript(selected);
     setScripts(loadScripts());
     setPos(0);
+    setDeliveryMap(null);
   };
   const addScript = () => {
     const created = createScript();
     setScript(created);
     setScripts(loadScripts());
     setPos(0);
+    setDeliveryMap(null);
     setTab("script");
   };
   const removeScript = () => {
@@ -235,6 +237,7 @@ export default function Teleprompter() {
     setScript(next);
     setScripts(loadScripts());
     setPos(0);
+    setDeliveryMap(null);
     toast("Script deleted from this device.");
   };
 
@@ -398,6 +401,8 @@ function FilmSurface(p: {
           <div className="flex flex-wrap items-center gap-2 px-4 pb-2 text-[11px] font-semibold">
             <span className="rounded-full bg-accent px-2 py-1 text-accent-foreground">{activeDelivery.pace}</span>
             <span className="rounded-full bg-scrim px-2 py-1">{activeDelivery.emotion}</span>
+            <span className="rounded-full bg-scrim px-2 py-1">Pitch: {activeDelivery.pitch}</span>
+            <span className="rounded-full bg-scrim px-2 py-1">Volume: {activeDelivery.volume}</span>
             <span className="text-muted-foreground">{activeDelivery.cue}</span>
             {activeDelivery.pauseAfterMs > 0 && <span className="text-muted-foreground">Pause {activeDelivery.pauseAfterMs} ms after phrase</span>}
           </div>
