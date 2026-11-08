@@ -29,7 +29,7 @@ export const Route = createFileRoute("/api/delivery")({
         if (!parsed.success) return Response.json({ error: "Invalid delivery-coaching request." }, { status: 400 });
 
         const apiKey = process.env.GROQ_API_KEY;
-        if (!apiKey) return Response.json({ error: "AI is not configured. Add GROQ_API_KEY in Vercel project settings." }, { status: 503 });
+        if (!apiKey) return Response.json({ error: "AI is not configured. Add GROQ_API_KEY in Cloudflare Worker Secrets." }, { status: 503 });
 
         const { script, style, audience, setting, experience } = parsed.data;
         const words = script.split(/\s+/).filter(Boolean);
