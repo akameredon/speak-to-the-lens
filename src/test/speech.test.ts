@@ -44,7 +44,7 @@ describe("speech recognition lifecycle", () => {
     act(() => result.current.start());
     // The hook's active recognizer is intentionally private; dispatch the error through
     // the fake constructor's latest instance to exercise the browser callback.
-    const instance = latestRecognition;
+    const instance = FakeRecognition.latest;
     act(() => instance?.onerror?.({ error: "not-allowed" }));
     expect(onFail).toHaveBeenCalledWith("not-allowed");
     expect(result.current.listening).toBe(false);
