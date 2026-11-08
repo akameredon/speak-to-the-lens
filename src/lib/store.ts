@@ -60,7 +60,78 @@ export function loadScript(): Script {
     return SAMPLE_SCRIPT;
   }
 }
-export const saveScript = (s: Script) => localStorage.setItem(SK, JSON.stringify(s));
+const SCRIPTS_KEY = "tp.scripts";
+
+function isScript(value: unknown): value is Script {
+  if (!value || typeof value !== "object") return false;
+  const item = value as Partial<Script>;
+  return typeof item.id === "string" && typeof item.title === "string" &&
+    typeof item.body === "string" && typeof item.savedAt === "number";
+}
+
+/** Read the script library, migrating the previous single-script key without losing it. */
+export function loadScripts(): Script[] {
+  try {
+    const raw = localStorage.getItem(SCRIPTS_KEY);
+    if (raw) {
+      const parsed: unknown = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        const valid = parsed.filter(isScript);
+        if (valid.length) return valid;
+      }
+    }
+  } catch {
+    // Fall back to the previous single-script format below.
+  }
+  return [loadScript()];
+}
+
+function persistScripts(scripts: Script[]) {
+  const current = scripts.find((item) => item.current) ?? scripts[0];
+  const normalized = scripts.map((item) => ({ ...item, current: item.id === current?.id }));
+  localStorage.setItem(SCRIPTS_KEY, JSON.stringify(normalized));
+  if (current) localStorage.setItem(SK, JSON.stringify({ ...current, current: true }));
+}
+
+export function loadCurrentScript(): Script {
+  return loadScripts().find((item) => item.current) ?? loadScript();
+}
+
+/** Save the current script while retaining every other script on this device. */
+export function saveScript(script: Script) {
+  const scripts = loadScripts();
+  const next = scripts.some((item) => item.id === script.id)
+    ? scripts.map((item) => item.id === script.id ? { ...script, current: true } : { ...item, current: false })
+    : [...scripts.map((item) => ({ ...item, current: false })), { ...script, current: true }];
+  persistScripts(next);
+}
+
+export function setCurrentScript(id: string): Script | undefined {
+  const scripts = loadScripts();
+  const selected = scripts.find((item) => item.id === id);
+  if (!selected) return undefined;
+  persistScripts(scripts.map((item) => ({ ...item, current: item.id === id })));
+  return { ...selected, current: true };
+}
+
+export function createScript(title = "Untitled script"): Script {
+  const id = typeof globalThis.crypto?.randomUUID === "function"
+    ? globalThis.crypto.randomUUID()
+    : "script-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+  const script: Script = { id, title, body: "", savedAt: Date.now(), current: true };
+  persistScripts([...loadScripts().map((item) => ({ ...item, current: false })), script]);
+  return script;
+}
+
+/** Keep at least one script so the editor can never become an empty library. */
+export function deleteScript(id: string): Script {
+  const scripts = loadScripts();
+  if (scripts.length <= 1) return scripts[0] ?? loadScript();
+  const remaining = scripts.filter((item) => item.id !== id);
+  const current = remaining.find((item) => item.current) ?? remaining[remaining.length - 1];
+  persistScripts(remaining.map((item) => ({ ...item, current: item.id === current.id })));
+  return { ...current, current: true };
+}
 
 const RK = "rec:";
 export async function listRecordings(): Promise<Recording[]> {

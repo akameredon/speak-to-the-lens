@@ -63,3 +63,38 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+## Vercel deployment
+
+This project is configured for Vercel using the existing TanStack Start + Nitro build.
+
+- Connect the GitHub repository `akameredon/speak-to-the-lens` to the Vercel project.
+- Install command: `bun install`
+- Build command: `bun run build`
+- Framework: TanStack Start (Lovable template).
+- Pushes to the production branch deploy to production; other branches create previews.
+
+### AI Script Writer environment
+
+The AI writer and script polisher use the Groq API:
+
+- Variable name: `GROQ_API_KEY`
+- Add it in Vercel → Project Settings → Environment Variables.
+- Enable it for Preview, Development, and Production only when ready.
+- The server uses Groq's production `openai/gpt-oss-20b` model through its OpenAI-compatible chat completions API.
+- Redeploy after adding or changing the variable.
+
+Use `.env.example` as a reference only. Never commit the real key or expose it in browser code. Camera, scripts, and recordings remain on the device; AI writing, polishing, and speech-delivery analysis requests are sent to Groq. Groq applies account-specific usage limits; check the Groq Console for the current limits on your account.
+
+### Local development and checks
+
+```sh
+bun install
+bun run dev
+bun run test
+bun run lint
+bun run build
+```
+
+The script library migrates the previous `tp.script` local save into the multi-script library on the same device. Existing recording entries in IndexedDB are retained.
+
