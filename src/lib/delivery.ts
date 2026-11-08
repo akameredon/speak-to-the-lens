@@ -40,7 +40,7 @@ export const DELIVERY_STYLE_LABELS: Record<DeliveryStyle, string> = {
 };
 
 export function scriptWords(script: string): string[] {
-  return script.trim().split(/\\s+/).filter(Boolean);
+  return script.trim().split(/\s+/).filter(Boolean);
 }
 
 /** Rejects missing, duplicated, reordered, overlapping or invented word ranges. */
