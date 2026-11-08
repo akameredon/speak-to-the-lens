@@ -84,7 +84,7 @@ The AI writer and script polisher use the Groq API:
 - The server uses Groq's production `openai/gpt-oss-20b` model through its OpenAI-compatible chat completions API.
 - Redeploy after adding or changing the variable.
 
-Use `.env.example` as a reference only. Never commit the real key or expose it in browser code. Camera, scripts, and recordings remain on the device; only AI writing requests are sent to Groq. Groq applies account-specific usage limits; check the Groq Console for the current limits on your account.
+Use `.env.example` as a reference only. Never commit the real key or expose it in browser code. Camera, scripts, and recordings remain on the device; AI writing, polishing, and speech-delivery analysis requests are sent to Groq. Groq applies account-specific usage limits; check the Groq Console for the current limits on your account.
 
 ### Local development and checks
 
