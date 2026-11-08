@@ -4,7 +4,7 @@ import {
   Pause, Play, Share2, Sparkles, Trash2, Wand2, X, ClipboardPaste, Timer, Film, Check,
 } from "lucide-react";
 import { toast } from "sonner";
-import { advance, tokenize } from "@/lib/follow";
+import { tokenize } from "@/lib/follow";
 import {
   type Profile, type Recording, type Script, createScript, deleteRecording, deleteScript, extFor, fmtTime, listRecordings,
   loadCurrentScript, loadProfile, loadScripts, pickMime, putRecording, saveProfile, saveScript, setCurrentScript,
