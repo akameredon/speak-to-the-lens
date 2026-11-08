@@ -57,6 +57,10 @@ export function startStudioPerformanceMonitoring() {
 
 export function measureScreenChange(startedAt: number) {
   if (typeof window === "undefined" || typeof performance === "undefined") return;
+  if (typeof requestAnimationFrame === "undefined") {
+    metrics.lastScreenChange = performance.now() - startedAt;
+    return;
+  }
   const sequence = ++interactionSequence;
   requestAnimationFrame(() => requestAnimationFrame(() => {
     if (sequence !== interactionSequence) return;
