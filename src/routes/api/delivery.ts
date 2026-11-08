@@ -23,7 +23,7 @@ export const Route = createFileRoute("/api/delivery")({
         if (!apiKey) return Response.json({ error: "AI is not configured. Add GROQ_API_KEY in Vercel project settings." }, { status: 503 });
 
         const { script, style, audience, setting, experience } = parsed.data;
-        const words = script.split(/\\s+/).filter(Boolean);
+        const words = script.split(/\s+/).filter(Boolean);
         const system = `You are an expert speech-delivery coach. Analyse the ENTIRE script before creating a delivery map. Divide it into natural spoken thought-groups, not individual words by default and not fixed-size groups. A group can contain 1, 2, 3, 4, or more words according to syntax, meaning, breath, emphasis and emotional intent. Never rewrite, omit, duplicate, invent, reorder or paraphrase script words.
 
 Return ONLY valid JSON in this exact shape:
