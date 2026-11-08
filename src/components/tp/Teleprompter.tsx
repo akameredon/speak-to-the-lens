@@ -102,11 +102,15 @@ export default function Teleprompter() {
   const speech = useSpeech(
     (text) => setPos((p) => advanceRecognizedDeliveryGroup(words, deliveryMap, p, text)),
     (reason) => {
-      setActiveMode("auto");
+      // A failed recognizer must never silently switch the speaker into timed scrolling.
+      // Keep the reading position stable and return to the explicit, user-controlled mode.
+      speech.stop();
+      setActiveMode("manual");
+      setProfile((current) => ({ ...current, mode: "manual" }));
       toast(reason === "not-allowed" || reason === "service-not-allowed"
-        ? "Microphone blocked for voice following — switched to tap to advance."
+        ? "Microphone access is blocked — tap to advance is ready."
         : reason === "unsupported"
-          ? "Voice following isn't supported here — using tap to advance."
+          ? "Voice following isn't supported here — tap to advance is ready."
           : "Voice following stopped — tap to advance is ready.");
     },
   );
@@ -565,10 +569,30 @@ function ScriptEditor({
 }) {
   const [busy, setBusy] = useState(false);
   const [coaching, setCoaching] = useState(false);
-  const [style, setStyle] = useState<DeliveryStyle>("social-camera");
-  const [audience, setAudience] = useState("General audience");
-  const [setting, setSetting] = useState("Camera / phone video");
-  const [experience, setExperience] = useState<"beginner" | "comfortable" | "experienced">("beginner");
+  const [preferences, setPreferences] = useState(() => {
+    const defaults = {
+      style: "social-camera" as DeliveryStyle,
+      audience: "General audience",
+      setting: "Camera / phone video",
+      experience: "beginner" as "beginner" | "comfortable" | "experienced",
+    };
+    try {
+      const saved = JSON.parse(localStorage.getItem("tp.delivery-preferences") || "null");
+      if (!saved || typeof saved !== "object") return defaults;
+      return {
+        style: DELIVERY_STYLES.includes(saved.style) ? saved.style : defaults.style,
+        audience: typeof saved.audience === "string" ? saved.audience.slice(0, 100) : defaults.audience,
+        setting: typeof saved.setting === "string" ? saved.setting.slice(0, 100) : defaults.setting,
+        experience: ["beginner", "comfortable", "experienced"].includes(saved.experience) ? saved.experience : defaults.experience,
+      };
+    } catch {
+      return defaults;
+    }
+  });
+  const { style, audience, setting, experience } = preferences;
+  useEffect(() => {
+    try { localStorage.setItem("tp.delivery-preferences", JSON.stringify(preferences)); } catch { /* Storage may be unavailable in private browsing. */ }
+  }, [preferences]);
   const words = tokenize(script.body).length;
   const coachDelivery = async () => {
     if (!script.body.trim()) return toast("Add your script before mapping its delivery.");
@@ -643,24 +667,24 @@ function ScriptEditor({
         </div>
         <label className="block space-y-1">
           <span className="text-xs font-semibold text-muted-foreground">Speech type</span>
-          <select value={style} onChange={(e) => { setStyle(e.target.value as DeliveryStyle); onDeliveryMap(null); }} className="w-full rounded-xl bg-background px-3 py-2 text-sm">
+          <select value={style} onChange={(e) => { setPreferences((current) => ({ ...current, style: e.target.value as DeliveryStyle })); onDeliveryMap(null); }} className="w-full rounded-xl bg-background px-3 py-2 text-sm">
             {DELIVERY_STYLES.map((item) => <option key={item} value={item}>{DELIVERY_STYLE_LABELS[item]}</option>)}
           </select>
         </label>
         <label className="block space-y-1">
           <span className="text-xs font-semibold text-muted-foreground">Audience</span>
-          <input value={audience} onChange={(e) => { setAudience(e.target.value); onDeliveryMap(null); }} maxLength={100} className="w-full rounded-xl bg-background px-3 py-2 text-sm" placeholder="e.g. Senior leadership, clients, investors, staff" />
+          <input value={audience} onChange={(e) => { setPreferences((current) => ({ ...current, audience: e.target.value })); onDeliveryMap(null); }} maxLength={100} className="w-full rounded-xl bg-background px-3 py-2 text-sm" placeholder="e.g. Senior leadership, clients, investors, staff" />
         </label>
         <div className="grid grid-cols-2 gap-2">
           <label className="space-y-1">
             <span className="text-xs font-semibold text-muted-foreground">Setting</span>
-            <select value={setting} onChange={(e) => { setSetting(e.target.value); onDeliveryMap(null); }} className="w-full rounded-xl bg-background px-2 py-2 text-xs">
+            <select value={setting} onChange={(e) => { setPreferences((current) => ({ ...current, setting: e.target.value })); onDeliveryMap(null); }} className="w-full rounded-xl bg-background px-2 py-2 text-xs">
               {["Camera / phone video", "Corporate office / boardroom", "Executive presentation", "Client meeting", "Conference / keynote stage", "Training / workshop", "Small room", "Classroom", "Church / auditorium", "Large stage", "Interview"].map((item) => <option key={item}>{item}</option>)}
             </select>
           </label>
           <label className="space-y-1">
             <span className="text-xs font-semibold text-muted-foreground">Experience</span>
-            <select value={experience} onChange={(e) => { setExperience(e.target.value as typeof experience); onDeliveryMap(null); }} className="w-full rounded-xl bg-background px-2 py-2 text-xs">
+            <select value={experience} onChange={(e) => { setPreferences((current) => ({ ...current, experience: e.target.value as typeof experience })); onDeliveryMap(null); }} className="w-full rounded-xl bg-background px-2 py-2 text-xs">
               <option value="beginner">Beginner</option>
               <option value="comfortable">Comfortable</option>
               <option value="experienced">Experienced</option>
