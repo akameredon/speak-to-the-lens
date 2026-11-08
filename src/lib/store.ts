@@ -6,7 +6,7 @@ export type Profile = {
   fontSize: number;
   speed: number; // 1-10
   mirror: boolean;
-  mode: "voice" | "auto";
+  mode: "manual" | "voice" | "auto";
 };
 
 export type Script = { id: string; title: string; body: string; savedAt: number; current: boolean };
@@ -37,7 +37,7 @@ export const DEFAULT_PROFILE: Profile = {
   fontSize: 34,
   speed: 5,
   mirror: false,
-  mode: "voice",
+  mode: "manual",
 };
 
 const PK = "tp.profile";
