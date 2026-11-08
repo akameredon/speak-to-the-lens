@@ -83,14 +83,17 @@ Rules:
         const content = payload?.choices?.[0]?.message?.content;
         if (typeof content !== "string") return Response.json({ error: "The AI returned no delivery map. Please try again." }, { status: 502 });
 
-        let decoded: { segments?: unknown };
+        let decoded: unknown;
         try {
           decoded = JSON.parse(content);
         } catch {
           return Response.json({ error: "The AI returned an unreadable delivery map. Please try again." }, { status: 502 });
         }
 
-        const segments = validateDeliverySegments(script, decoded.segments);
+        const candidate = decoded && typeof decoded === "object" && "segments" in decoded
+          ? (decoded as { segments?: unknown }).segments
+          : undefined;
+        const segments = validateDeliverySegments(script, candidate);
         if (!segments) {
           return Response.json({ error: "The delivery map did not match every script word exactly. Please analyse it again." }, { status: 422 });
         }
