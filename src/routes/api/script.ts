@@ -15,25 +15,24 @@ const Body = z.discriminatedUnion("kind", [
 ]);
 
 const WORDS = { "30s": 75, "60s": 150, "2m": 300 } as const;
-const MODEL = "gemini-3.8-flash";
+const PROVIDER = "Groq";
+const MODEL = "openai/gpt-oss-20b";
 
 export const Route = createFileRoute("/api/script")({
   server: {
     handlers: {
       GET: async () =>
         Response.json(
-          { ok: true, provider: "Gemini", model: MODEL, apiKeyConfigured: Boolean(process.env.GEMINI_API_KEY) },
+          { ok: true, provider: PROVIDER, model: MODEL, apiKeyConfigured: Boolean(process.env.GROQ_API_KEY) },
           { headers: { "Cache-Control": "no-store" } },
         ),
       POST: async ({ request }) => {
         const parsed = Body.safeParse(await request.json().catch(() => null));
         if (!parsed.success) return new Response("Invalid request", { status: 400 });
 
-        const apiKey = process.env.GEMINI_API_KEY;
+        const apiKey = process.env.GROQ_API_KEY;
         if (!apiKey) {
-          return new Response("AI is not configured. Add GEMINI_API_KEY in Vercel project settings.", {
-            status: 503,
-          });
+          return new Response("AI is not configured. Add GROQ_API_KEY in Vercel project settings.", { status: 503 });
         }
 
         const d = parsed.data;
@@ -46,42 +45,52 @@ export const Route = createFileRoute("/api/script")({
 
         let upstream: Response;
         try {
-          upstream = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:streamGenerateContent?alt=sse`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "x-goog-api-key": apiKey,
-              },
-              body: JSON.stringify({
-                systemInstruction: { parts: [{ text: instructions }] },
-                contents: [{ role: "user", parts: [{ text: prompt }] }],
-                generationConfig: { temperature: 0.7, maxOutputTokens: 2048 },
-              }),
-              signal: request.signal,
+          upstream = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
             },
-          );
-        } catch {
-          return new Response("Gemini could not be reached. Check your connection and try again.", {
-            status: 502,
+            body: JSON.stringify({
+              model: MODEL,
+              stream: true,
+              temperature: 0.7,
+              max_completion_tokens: 2048,
+              messages: [
+                { role: "system", content: instructions },
+                { role: "user", content: prompt },
+              ],
+            }),
+            signal: request.signal,
           });
+        } catch {
+          return new Response("Groq could not be reached. Check your connection and try again.", { status: 502 });
         }
 
         if (!upstream.ok) {
           const status = upstream.status;
-          const message =
-            status === 429
-              ? "Gemini's free usage limit has been reached for now. Please try again later."
-              : status === 400 || status === 403
-                ? "Gemini rejected the request or API key. Check that the key is valid and the Gemini API is enabled."
-                : "Gemini is temporarily unavailable. Please try again.";
+          const detail = await upstream.text().catch(() => "");
+          let message =
+            status === 401 || status === 403
+              ? "Groq rejected the API key. Check that GROQ_API_KEY is valid."
+              : status === 429
+                ? "Groq's usage limit has been reached. Wait briefly and try again."
+                : status >= 500
+                  ? "Groq is temporarily unavailable. Please try again."
+                  : "Groq could not process this request.";
+          try {
+            const parsedError = JSON.parse(detail);
+            const providerMessage = parsedError.error?.message;
+            if (typeof providerMessage === "string" && status !== 401 && status !== 403) {
+              message += ` Details: ${providerMessage.slice(0, 240)}`;
+            }
+          } catch {
+            // Keep the safe, actionable message.
+          }
           return new Response(message, { status: status === 429 ? 429 : status >= 500 ? 502 : 400 });
         }
 
-        if (!upstream.body) {
-          return new Response("Gemini returned an empty response. Please try again.", { status: 502 });
-        }
+        if (!upstream.body) return new Response("Groq returned no response stream.", { status: 502 });
 
         const decoder = new TextDecoder();
         const encoder = new TextEncoder();
@@ -95,12 +104,10 @@ export const Route = createFileRoute("/api/script")({
               if (!payload || payload === "[DONE]") return;
               try {
                 const event = JSON.parse(payload);
-                const parts = event.candidates?.[0]?.content?.parts ?? [];
-                for (const part of parts) {
-                  if (typeof part.text === "string") controller.enqueue(encoder.encode(part.text));
-                }
+                const content = event.choices?.[0]?.delta?.content;
+                if (typeof content === "string" && content) controller.enqueue(encoder.encode(content));
               } catch {
-                // Ignore malformed keep-alive or partial SSE records.
+                // Ignore incomplete or malformed SSE records.
               }
             };
 
@@ -118,7 +125,7 @@ export const Route = createFileRoute("/api/script")({
                 }
               }
             } catch {
-              controller.enqueue(encoder.encode("\n[[ERROR]]Gemini interrupted the response. Please try again."));
+              controller.enqueue(encoder.encode("\n[[ERROR]]Groq interrupted the response. Please try again."));
               controller.close();
             } finally {
               reader.releaseLock();
