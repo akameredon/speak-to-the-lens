@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aiRequestTooLarge, checkAiRateLimit } from "@/lib/ai-guard";
+import { aiRequestTooLarge, checkAiRateLimit, isSameOriginAiRequest } from "@/lib/ai-guard";
 
 describe("AI request protection", () => {
   it("limits repeated script requests from the same client", () => {
@@ -23,5 +23,26 @@ describe("AI request protection", () => {
     const large = new Request("https://example.test", { headers: { "content-length": "12001" } });
     expect(aiRequestTooLarge(small, 12_000)).toBe(false);
     expect(aiRequestTooLarge(large, 12_000)).toBe(true);
+  });
+});
+
+
+describe("AI request origin", () => {
+  it("accepts requests from the same app host", () => {
+    const request = new Request("https://app.example/api/script", {
+      method: "POST",
+      headers: { origin: "https://app.example", host: "app.example" },
+    });
+    expect(isSameOriginAiRequest(request)).toBe(true);
+  });
+
+  it("rejects cross-origin and origin-less requests", () => {
+    const crossOrigin = new Request("https://app.example/api/script", {
+      method: "POST",
+      headers: { origin: "https://attacker.example", host: "app.example" },
+    });
+    const missing = new Request("https://app.example/api/script", { method: "POST" });
+    expect(isSameOriginAiRequest(crossOrigin)).toBe(false);
+    expect(isSameOriginAiRequest(missing)).toBe(false);
   });
 });
