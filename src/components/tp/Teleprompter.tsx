@@ -75,6 +75,7 @@ export default function Teleprompter() {
     let cancelled = false;
     (async () => {
       if (!navigator.mediaDevices?.getUserMedia) {
+        setCameraRequested(false);
         setNotice({ title: "Camera not available", body: "This browser can't open the camera. Try Safari on iPhone or Chrome on Android, over a secure (https) link." });
         return;
       }
@@ -91,6 +92,7 @@ export default function Teleprompter() {
       } catch (e) {
         const name = (e as DOMException).name;
         setCamReady(false);
+        setCameraRequested(false);
         if (name === "NotAllowedError")
           setNotice({ title: "Camera or microphone blocked", body: "Allow camera and microphone for this site in your browser settings, then reload. You can still read and edit your script." });
         else if (name === "NotFoundError" || name === "OverconstrainedError")
