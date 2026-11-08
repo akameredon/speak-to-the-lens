@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { advanceRecognizedDeliveryGroup, currentDeliverySegment, nextDeliveryPosition, previousDeliveryPosition, scriptWords, validateDeliverySegments, type DeliveryMap } from "@/lib/delivery";
+import { advanceRecognizedDeliveryGroup, autoAdvanceDelay, currentDeliverySegment, nextDeliveryPosition, previousDeliveryPosition, scriptWords, validateDeliverySegments, type DeliveryMap } from "@/lib/delivery";
 
 const script = "Hey everyone! Today I'll share three quick tricks. First, treat them like fresh flowers.";
 const valid = [
@@ -86,5 +86,19 @@ describe("phrase-aware voice following", () => {
 
   it("moves to the next group only when the current phrase is completed", () => {
     expect(advanceRecognizedDeliveryGroup(words, map, 0, "Hey everyone")).toBe(2);
+  });
+});
+
+
+describe("automatic reading pace", () => {
+  it("respects the selected speed and delivery pace", () => {
+    expect(autoAdvanceDelay(5, "slow")).toBeGreaterThan(autoAdvanceDelay(5, "natural"));
+    expect(autoAdvanceDelay(5, "natural")).toBeGreaterThan(autoAdvanceDelay(5, "brisk"));
+  });
+
+  it("adds rhetorical pauses and clamps invalid preferences", () => {
+    expect(autoAdvanceDelay(5, "natural", 500) - autoAdvanceDelay(5, "natural", 0)).toBe(500);
+    expect(autoAdvanceDelay(99, "natural")).toBe(autoAdvanceDelay(10, "natural"));
+    expect(autoAdvanceDelay(-10, "natural")).toBe(autoAdvanceDelay(1, "natural"));
   });
 });
