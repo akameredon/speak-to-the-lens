@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { currentDeliverySegment, nextDeliveryPosition, previousDeliveryPosition, scriptWords, validateDeliverySegments, type DeliveryMap } from "@/lib/delivery";
+import { advanceRecognizedDeliveryGroup, currentDeliverySegment, nextDeliveryPosition, previousDeliveryPosition, scriptWords, validateDeliverySegments, type DeliveryMap } from "@/lib/delivery";
 
 const script = "Hey everyone! Today I'll share three quick tricks. First, treat them like fresh flowers.";
 const valid = [
@@ -65,5 +65,26 @@ describe("instant phrase navigation", () => {
   it("uses sentence boundaries if no AI delivery map exists", () => {
     expect(nextDeliveryPosition(null, words, 0)).toBe(2);
     expect(previousDeliveryPosition(null, words, 8)).toBe(2);
+  });
+});
+
+describe("phrase-aware voice following", () => {
+  const words = scriptWords("Hey everyone! Today I'll share three quick tricks.");
+  const map: DeliveryMap = {
+    style: "social-camera",
+    audience: "general",
+    setting: "camera",
+    segments: [
+      { startWord: 0, endWord: 2, pace: "natural", pitch: "steady", volume: "conversational", emotion: "warm", emphasis: [], pauseAfterMs: 0, cue: "Open warmly" },
+      { startWord: 2, endWord: words.length, pace: "measured", pitch: "lift", volume: "conversational", emotion: "confident", emphasis: [], pauseAfterMs: 0, cue: "Build interest" },
+    ],
+  };
+
+  it("keeps the full current group highlighted during partial speech", () => {
+    expect(advanceRecognizedDeliveryGroup(words, map, 0, "Hey")).toBe(0);
+  });
+
+  it("moves to the next group only when the current phrase is completed", () => {
+    expect(advanceRecognizedDeliveryGroup(words, map, 0, "Hey everyone")).toBe(2);
   });
 });
