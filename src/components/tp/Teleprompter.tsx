@@ -10,6 +10,7 @@ import {
   loadCurrentScript, loadProfile, loadScripts, pickMime, putRecording, saveProfile, saveScript, setCurrentScript,
 } from "@/lib/store";
 import { speechSupported, useSpeech } from "./useSpeech";
+import { getStudioPerformanceReport, measureScreenChange, startStudioPerformanceMonitoring } from "@/lib/studio-performance";
 import {
   advanceRecognizedDeliveryGroup, autoAdvanceDelay, currentDeliverySegment, nextDeliveryPosition, previousDeliveryPosition, DELIVERY_STYLES, DELIVERY_STYLE_LABELS,
   type DeliveryMap, type DeliveryStyle,
@@ -46,6 +47,8 @@ export default function Teleprompter() {
   const words = useMemo(() => tokenize(script.body), [script.body]);
   const posRef = useRef(pos);
   posRef.current = pos;
+
+  useEffect(() => startStudioPerformanceMonitoring(), []);
 
   // persist
   useEffect(() => saveProfile(profile), [profile]);
@@ -251,6 +254,7 @@ export default function Teleprompter() {
     setScripts(loadScripts());
     setPos(0);
     setDeliveryMap(null);
+    measureScreenChange(performance.now());
     setTab("script");
   };
   const removeScript = () => {
@@ -290,7 +294,7 @@ export default function Teleprompter() {
             onAdvance={() => setPos((current) => nextDeliveryPosition(deliveryMap, words, current))}
             onPrevious={() => setPos((current) => previousDeliveryPosition(deliveryMap, words, current))}
             onRecord={() => (recording ? stopRecording() : startRecording())}
-            onEdit={() => setTab("script")}
+            onEdit={() => { measureScreenChange(performance.now()); setTab("script"); }}
             onHelp={() => setHelp(true)}
             onSwitchMode={() => {
               const next = activeMode === "manual" ? "voice" : activeMode === "voice" ? "auto" : "manual";
@@ -318,13 +322,13 @@ export default function Teleprompter() {
             onSelectScript={chooseScript}
             onNewScript={addScript}
             onDeleteScript={removeScript}
-            onWrite={() => setTab("write")}
+            onWrite={() => { measureScreenChange(performance.now()); setTab("write"); }}
           />
         )}
         {tab === "write" && (
           <Writer
             onStream={(t) => { setScript((s) => ({ ...s, body: t })); setDeliveryMap(null); }}
-            onStart={(topic) => { setScript((s) => ({ ...s, title: topic.slice(0, 48) || s.title })); setTab("script"); setPos(0); }}
+            onStart={(topic) => { setScript((s) => ({ ...s, title: topic.slice(0, 48) || s.title })); measureScreenChange(performance.now()); setTab("script"); setPos(0); }}
           />
         )}
         {tab === "takes" && <Takes takes={takes} refresh={refreshTakes} onOpen={setReview} />}
@@ -342,6 +346,7 @@ export default function Teleprompter() {
             onClick={() => {
               if (recording) return toast("Stop recording first.");
               if (k !== "film" && running) stopReading();
+              measureScreenChange(performance.now());
               setTab(k);
             }}
             aria-current={tab === k ? "page" : undefined}
@@ -932,6 +937,25 @@ function AudioHelp({ onClose }: { onClose: () => void }) {
           </li>
         ))}
       </ul>
+      <section className="app-panel mt-4 space-y-2 p-4">
+        <div>
+          <p className="font-bold">Studio performance</p>
+          <p className="text-xs leading-relaxed text-muted-foreground">Copy a local diagnostic snapshot to help measure load speed and responsiveness. Nothing is uploaded automatically.</p>
+        </div>
+        <button
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(getStudioPerformanceReport());
+              toast("Performance snapshot copied. It stays on your device until you share it.");
+            } catch {
+              toast("Clipboard access is unavailable in this browser.");
+            }
+          }}
+          className="app-secondary tap-target w-full justify-center"
+        >
+          Copy performance snapshot
+        </button>
+      </section>
     </Sheet>
   );
 }
