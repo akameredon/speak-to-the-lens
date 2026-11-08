@@ -3,6 +3,7 @@ import {
   createScript,
   deleteScript,
   loadCurrentScript,
+  loadProfile,
   loadScripts,
   saveScript,
   setCurrentScript,
@@ -63,5 +64,14 @@ describe("on-device script library", () => {
 
     expect(deleteScript(only.id).id).toBe(only.id);
     expect(loadScripts()).toHaveLength(1);
+  });
+});
+
+describe("reading mode preference migration", () => {
+  it("defaults existing profiles to phrase-first manual reading once", () => {
+    localStorage.setItem("tp.profile", JSON.stringify({ mode: "voice", fontSize: 42 }));
+    expect(loadProfile()).toMatchObject({ mode: "manual", fontSize: 42 });
+    localStorage.setItem("tp.profile", JSON.stringify({ mode: "auto", fontSize: 42 }));
+    expect(loadProfile().mode).toBe("auto");
   });
 });

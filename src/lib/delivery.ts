@@ -1,3 +1,5 @@
+import { advance } from "@/lib/follow";
+
 export const DELIVERY_STYLES = [
   "social-camera", "inspirational", "testimony-storytelling", "teaching",
   "persuasive", "formal", "sermon-prayer", "debate-interview",
@@ -92,4 +94,46 @@ export function validateDeliverySegments(
 export function currentDeliverySegment(map: DeliveryMap | null, position: number): DeliverySegment | null {
   if (!map) return null;
   return map.segments.find((segment) => position >= segment.startWord && position < segment.endWord) ?? null;
+}
+
+/** Return the next pre-planned speaking-group boundary. */
+export function nextDeliveryPosition(map: DeliveryMap | null, words: string[], position: number): number {
+  if (map) {
+    const current = currentDeliverySegment(map, position);
+    if (current) return current.endWord;
+    const next = map.segments.find((segment) => segment.startWord > position);
+    if (next) return next.endWord;
+  }
+  for (let i = Math.max(0, position); i < words.length; i++) {
+    if (/[.!?][”’"')\]]*$/.test(words[i])) return i + 1;
+  }
+  return Math.min(words.length, position + 1);
+}
+
+/** Return the start of the previous planned group, or previous sentence. */
+export function previousDeliveryPosition(map: DeliveryMap | null, words: string[], position: number): number {
+  if (map) {
+    const previous = [...map.segments].reverse().find((segment) => segment.endWord <= position);
+    if (previous) return previous.startWord;
+    const current = currentDeliverySegment(map, position);
+    if (current && current.startWord < position) return current.startWord;
+  }
+  for (let i = Math.min(words.length - 1, position - 2); i >= 0; i--) {
+    if (/[.!?][”’"')\]]*$/.test(words[i])) return i + 1;
+  }
+  return 0;
+}
+
+/** Voice following keeps the active phrase highlighted until its ending words are recognised. */
+export function advanceRecognizedDeliveryGroup(
+  words: string[],
+  map: DeliveryMap | null,
+  position: number,
+  spoken: string,
+): number {
+  if (!map) return advance(words, position, spoken);
+  const current = currentDeliverySegment(map, position);
+  if (!current) return position;
+  const matched = advance(words, position, spoken, Math.max(12, current.endWord - position));
+  return matched >= current.endWord ? current.endWord : position;
 }

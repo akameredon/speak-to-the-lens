@@ -4,7 +4,7 @@ import {
   Pause, Play, Share2, Sparkles, Trash2, Wand2, X, ClipboardPaste, Timer, Film, Check,
 } from "lucide-react";
 import { toast } from "sonner";
-import { advance, tokenize } from "@/lib/follow";
+import { tokenize } from "@/lib/follow";
 import {
   type Profile, type Recording, type Script, createScript, deleteRecording, deleteScript, extFor, fmtTime, listRecordings,
   loadCurrentScript, loadProfile, loadScripts, pickMime, putRecording, saveProfile, saveScript, setCurrentScript,
@@ -12,7 +12,7 @@ import {
 import { speechSupported, useSpeech } from "./useSpeech";
 import { streamScript } from "./ai";
 import {
-  currentDeliverySegment, DELIVERY_STYLES, DELIVERY_STYLE_LABELS,
+  advanceRecognizedDeliveryGroup, currentDeliverySegment, nextDeliveryPosition, previousDeliveryPosition, DELIVERY_STYLES, DELIVERY_STYLE_LABELS,
   type DeliveryMap, type DeliveryStyle,
 } from "@/lib/delivery";
 
@@ -100,14 +100,18 @@ export default function Teleprompter() {
 
   // voice
   const speech = useSpeech(
-    (text) => setPos((p) => advance(words, p, text)),
+    (text) => setPos((p) => advanceRecognizedDeliveryGroup(words, deliveryMap, p, text)),
     (reason) => {
-      setActiveMode("auto");
+      // A failed recognizer must never silently switch the speaker into timed scrolling.
+      // Keep the reading position stable and return to the explicit, user-controlled mode.
+      speech.stop();
+      setActiveMode("manual");
+      setProfile((current) => ({ ...current, mode: "manual" }));
       toast(reason === "not-allowed" || reason === "service-not-allowed"
-        ? "Microphone blocked for voice following — switched to auto scroll."
+        ? "Microphone access is blocked — tap to advance is ready."
         : reason === "unsupported"
-          ? "Voice following isn't supported here — using auto scroll."
-          : "Lost your voice — auto scroll is keeping you moving.");
+          ? "Voice following isn't supported here — tap to advance is ready."
+          : "Voice following stopped — tap to advance is ready.");
     },
   );
 
@@ -126,8 +130,8 @@ export default function Teleprompter() {
   }, [running, activeMode, profile.speed, words.length, pos, deliveryMap]);
 
   const startReading = useCallback(() => {
-    const mode = profile.mode === "voice" && speechSupported() ? "voice" : "auto";
-    if (profile.mode === "voice" && mode === "auto") toast("Voice following isn't supported here — using auto scroll.");
+    const mode = profile.mode === "voice" && !speechSupported() ? "manual" : profile.mode;
+    if (profile.mode === "voice" && mode === "manual") toast("Voice following isn't supported here — using tap to advance.");
     setActiveMode(mode);
     if (mode === "voice") speech.start();
     setRunning(true);
@@ -262,18 +266,24 @@ export default function Teleprompter() {
             elapsed={elapsed}
             upd={upd}
             onToggleRead={() => (running ? stopReading() : (pos >= words.length && setPos(0), startReading()))}
+            onAdvance={() => setPos((current) => nextDeliveryPosition(deliveryMap, words, current))}
+            onPrevious={() => setPos((current) => previousDeliveryPosition(deliveryMap, words, current))}
             onRecord={() => (recording ? stopRecording() : startRecording())}
             onEdit={() => setTab("script")}
             onHelp={() => setHelp(true)}
             onSwitchMode={() => {
-              const next = activeMode === "voice" ? "auto" : "voice";
+              const next = activeMode === "manual" ? "voice" : activeMode === "voice" ? "auto" : "manual";
+              if (next === "voice" && !speechSupported()) {
+                speech.stop();
+                setActiveMode("manual");
+                upd({ mode: "manual" });
+                toast("Voice following isn't supported here — tap to advance is ready.");
+                return;
+              }
               upd({ mode: next });
-              if (running) {
-                if (next === "voice") {
-                  if (speechSupported()) { setActiveMode("voice"); speech.start(); }
-                  else { setActiveMode("auto"); toast("Voice following isn't supported here."); }
-                } else { speech.stop(); setActiveMode("auto"); }
-              } else setActiveMode(next);
+              if (next === "voice") speech.start();
+              else speech.stop();
+              setActiveMode(next);
             }}
           />
         )}
@@ -351,6 +361,8 @@ function FilmSurface(p: {
   elapsed: number;
   upd: (x: Partial<Profile>) => void;
   onToggleRead: () => void;
+  onAdvance: () => void;
+  onPrevious: () => void;
   onRecord: () => void;
   onEdit: () => void;
   onHelp: () => void;
@@ -359,6 +371,24 @@ function FilmSurface(p: {
   const boxRef = useRef<HTMLDivElement>(null);
   const curRef = useRef<HTMLSpanElement>(null);
   const activeDelivery = currentDeliverySegment(p.deliveryMap, p.pos);
+  const activeIndex = p.deliveryMap?.segments.findIndex((segment) => segment === activeDelivery) ?? -1;
+  const upcomingDelivery = activeIndex >= 0 ? p.deliveryMap?.segments[activeIndex + 1] : undefined;
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+      if (!p.running || p.activeMode !== "manual") return;
+      if (event.code === "Space" || event.code === "ArrowRight") {
+        event.preventDefault();
+        p.onAdvance();
+      } else if (event.code === "ArrowLeft") {
+        event.preventDefault();
+        p.onPrevious();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [p.running, p.activeMode, p.onAdvance, p.onPrevious]);
   useEffect(() => {
     const box = boxRef.current, el = curRef.current;
     if (!box || !el) return;
@@ -384,8 +414,8 @@ function FilmSurface(p: {
       <div className="absolute inset-x-0 top-0 bg-panel pt-[env(safe-area-inset-top)] backdrop-blur-md">
         <div className="flex items-center justify-between px-4 pt-3 text-xs font-medium text-muted-foreground">
           <button onClick={p.onSwitchMode} className="flex items-center gap-1.5 rounded-full bg-scrim px-3 py-1.5">
-            {p.activeMode === "voice" ? <Mic className="h-3.5 w-3.5 text-accent" /> : <Timer className="h-3.5 w-3.5 text-accent" />}
-            {p.activeMode === "voice" ? (p.listening ? "Voice · listening" : "Voice") : "Auto scroll"}
+            {p.activeMode === "voice" ? <Mic className="h-3.5 w-3.5 text-accent" /> : p.activeMode === "auto" ? <Timer className="h-3.5 w-3.5 text-accent" /> : <Play className="h-3.5 w-3.5 text-accent" />}
+            {p.activeMode === "voice" ? (p.listening ? "Voice follow · listening" : "Voice follow") : p.activeMode === "auto" ? "Auto pace" : "Tap to advance"}
           </button>
           {p.recording ? (
             <span className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 font-bold text-primary-foreground">
@@ -398,13 +428,22 @@ function FilmSurface(p: {
           )}
         </div>
         {activeDelivery && (
-          <div className="flex flex-wrap items-center gap-2 px-4 pb-2 text-[11px] font-semibold">
-            <span className="rounded-full bg-accent px-2 py-1 text-accent-foreground">{activeDelivery.pace}</span>
+          <div className="space-y-1 px-4 pb-2">
+            <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+              <span className="rounded-full bg-accent px-2 py-1 text-accent-foreground">Group {activeIndex + 1} / {p.deliveryMap?.segments.length}</span>
+              <span className="rounded-full bg-scrim px-2 py-1">{activeDelivery.pace}</span>
             <span className="rounded-full bg-scrim px-2 py-1">{activeDelivery.emotion}</span>
             <span className="rounded-full bg-scrim px-2 py-1">Pitch: {activeDelivery.pitch}</span>
             <span className="rounded-full bg-scrim px-2 py-1">Volume: {activeDelivery.volume}</span>
             <span className="text-muted-foreground">{activeDelivery.cue}</span>
-            {activeDelivery.pauseAfterMs > 0 && <span className="text-muted-foreground">Pause {activeDelivery.pauseAfterMs} ms after phrase</span>}
+              {activeDelivery.pauseAfterMs > 0 && <span className="text-muted-foreground">Pause {activeDelivery.pauseAfterMs} ms after phrase</span>}
+            </div>
+            {upcomingDelivery && (
+              <div className="truncate text-[11px] text-foreground/65">
+                <span className="mr-2 font-bold uppercase tracking-wider text-accent">Next</span>
+                {p.words.slice(upcomingDelivery.startWord, upcomingDelivery.endWord).join(" ")}
+              </div>
+            )}
           </div>
         )}
         <div
@@ -422,6 +461,13 @@ function FilmSurface(p: {
                   ref={active ? curRef : undefined}
                   onClick={() => p.setPos(segment.startWord)}
                   className={`script-word ${active ? "word-current" : passed ? "word-read" : ""}`}
+                  style={active ? {
+                    backgroundColor: "var(--accent)",
+                    color: "var(--accent-foreground)",
+                    WebkitBoxDecorationBreak: "clone",
+                    boxDecorationBreak: "clone",
+                  } : undefined}
+                  aria-current={active ? "true" : undefined}
                   title={segment.cue}
                 >
                   {p.words.slice(segment.startWord, segment.endWord).map((word, offset) => (
@@ -447,16 +493,23 @@ function FilmSurface(p: {
 
       {/* thumb controls */}
       <div className="absolute inset-x-0 bottom-0 space-y-3 bg-gradient-to-t from-background/90 to-transparent px-4 pb-4 pt-10">
-        <div className="flex items-center gap-3 rounded-3xl bg-scrim p-3 backdrop-blur-md">
+        {p.activeMode === "manual" && (
+          <div className="flex justify-center">
+            <button onClick={p.onAdvance} disabled={p.pos >= p.words.length} className="rounded-full border border-white/15 bg-background/75 px-6 py-2.5 text-sm font-bold shadow-lg backdrop-blur-xl disabled:opacity-40">
+              Done · Next {p.deliveryMap ? "phrase" : "sentence"} <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        )}
+        <div className="flex items-center gap-3 rounded-3xl border border-white/10 bg-scrim/80 p-3 shadow-lg backdrop-blur-xl">
           <Control label="Size" value={`${p.profile.fontSize}px`}>
             <input type="range" min={22} max={56} value={p.profile.fontSize} onChange={(e) => p.upd({ fontSize: +e.target.value })} className="w-full accent-[var(--accent)]" aria-label="Font size" />
           </Control>
-          <Control label="Speed" value={String(p.profile.speed)}>
+          {p.activeMode === "auto" && <Control label="Speed" value={String(p.profile.speed)}>
             <input type="range" min={1} max={10} value={p.profile.speed} onChange={(e) => p.upd({ speed: +e.target.value })} className="w-full accent-[var(--accent)]" aria-label="Scroll speed" />
-          </Control>
+          </Control>}
           <div className="flex flex-col gap-1">
-            <button aria-label="Back a line" onClick={() => p.setPos((x) => Math.max(0, x - 6))} className="rounded-full bg-secondary p-1.5"><ArrowUp className="h-4 w-4" /></button>
-            <button aria-label="Forward a line" onClick={() => p.setPos((x) => Math.min(p.words.length, x + 6))} className="rounded-full bg-secondary p-1.5"><ArrowDown className="h-4 w-4" /></button>
+            <button aria-label="Previous phrase" onClick={p.onPrevious} className="rounded-full bg-secondary p-1.5"><ArrowUp className="h-4 w-4" /></button>
+            <button aria-label="Next phrase" onClick={p.onAdvance} className="rounded-full bg-secondary p-1.5"><ArrowDown className="h-4 w-4" /></button>
           </div>
         </div>
         <div className="flex items-center justify-between">
@@ -516,10 +569,30 @@ function ScriptEditor({
 }) {
   const [busy, setBusy] = useState(false);
   const [coaching, setCoaching] = useState(false);
-  const [style, setStyle] = useState<DeliveryStyle>("social-camera");
-  const [audience, setAudience] = useState("General audience");
-  const [setting, setSetting] = useState("Camera / phone video");
-  const [experience, setExperience] = useState<"beginner" | "comfortable" | "experienced">("beginner");
+  const [preferences, setPreferences] = useState(() => {
+    const defaults = {
+      style: "social-camera" as DeliveryStyle,
+      audience: "General audience",
+      setting: "Camera / phone video",
+      experience: "beginner" as "beginner" | "comfortable" | "experienced",
+    };
+    try {
+      const saved = JSON.parse(localStorage.getItem("tp.delivery-preferences") || "null");
+      if (!saved || typeof saved !== "object") return defaults;
+      return {
+        style: DELIVERY_STYLES.includes(saved.style) ? saved.style : defaults.style,
+        audience: typeof saved.audience === "string" ? saved.audience.slice(0, 100) : defaults.audience,
+        setting: typeof saved.setting === "string" ? saved.setting.slice(0, 100) : defaults.setting,
+        experience: ["beginner", "comfortable", "experienced"].includes(saved.experience) ? saved.experience : defaults.experience,
+      };
+    } catch {
+      return defaults;
+    }
+  });
+  const { style, audience, setting, experience } = preferences;
+  useEffect(() => {
+    try { localStorage.setItem("tp.delivery-preferences", JSON.stringify(preferences)); } catch { /* Storage may be unavailable in private browsing. */ }
+  }, [preferences]);
   const words = tokenize(script.body).length;
   const coachDelivery = async () => {
     if (!script.body.trim()) return toast("Add your script before mapping its delivery.");
@@ -594,24 +667,24 @@ function ScriptEditor({
         </div>
         <label className="block space-y-1">
           <span className="text-xs font-semibold text-muted-foreground">Speech type</span>
-          <select value={style} onChange={(e) => { setStyle(e.target.value as DeliveryStyle); onDeliveryMap(null); }} className="w-full rounded-xl bg-background px-3 py-2 text-sm">
+          <select value={style} onChange={(e) => { setPreferences((current) => ({ ...current, style: e.target.value as DeliveryStyle })); onDeliveryMap(null); }} className="w-full rounded-xl bg-background px-3 py-2 text-sm">
             {DELIVERY_STYLES.map((item) => <option key={item} value={item}>{DELIVERY_STYLE_LABELS[item]}</option>)}
           </select>
         </label>
         <label className="block space-y-1">
           <span className="text-xs font-semibold text-muted-foreground">Audience</span>
-          <input value={audience} onChange={(e) => { setAudience(e.target.value); onDeliveryMap(null); }} maxLength={100} className="w-full rounded-xl bg-background px-3 py-2 text-sm" placeholder="e.g. First-time viewers" />
+          <input value={audience} onChange={(e) => { setPreferences((current) => ({ ...current, audience: e.target.value })); onDeliveryMap(null); }} maxLength={100} className="w-full rounded-xl bg-background px-3 py-2 text-sm" placeholder="e.g. Senior leadership, clients, investors, staff" />
         </label>
         <div className="grid grid-cols-2 gap-2">
           <label className="space-y-1">
             <span className="text-xs font-semibold text-muted-foreground">Setting</span>
-            <select value={setting} onChange={(e) => { setSetting(e.target.value); onDeliveryMap(null); }} className="w-full rounded-xl bg-background px-2 py-2 text-xs">
-              {["Camera / phone video", "Small room", "Classroom", "Church / auditorium", "Large stage", "Interview"].map((item) => <option key={item}>{item}</option>)}
+            <select value={setting} onChange={(e) => { setPreferences((current) => ({ ...current, setting: e.target.value })); onDeliveryMap(null); }} className="w-full rounded-xl bg-background px-2 py-2 text-xs">
+              {["Camera / phone video", "Corporate office / boardroom", "Executive presentation", "Client meeting", "Conference / keynote stage", "Training / workshop", "Small room", "Classroom", "Church / auditorium", "Large stage", "Interview"].map((item) => <option key={item}>{item}</option>)}
             </select>
           </label>
           <label className="space-y-1">
             <span className="text-xs font-semibold text-muted-foreground">Experience</span>
-            <select value={experience} onChange={(e) => { setExperience(e.target.value as typeof experience); onDeliveryMap(null); }} className="w-full rounded-xl bg-background px-2 py-2 text-xs">
+            <select value={experience} onChange={(e) => { setPreferences((current) => ({ ...current, experience: e.target.value as typeof experience })); onDeliveryMap(null); }} className="w-full rounded-xl bg-background px-2 py-2 text-xs">
               <option value="beginner">Beginner</option>
               <option value="comfortable">Comfortable</option>
               <option value="experienced">Experienced</option>

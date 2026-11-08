@@ -6,7 +6,7 @@ export type Profile = {
   fontSize: number;
   speed: number; // 1-10
   mirror: boolean;
-  mode: "voice" | "auto";
+  mode: "manual" | "voice" | "auto";
 };
 
 export type Script = { id: string; title: string; body: string; savedAt: number; current: boolean };
@@ -37,15 +37,21 @@ export const DEFAULT_PROFILE: Profile = {
   fontSize: 34,
   speed: 5,
   mirror: false,
-  mode: "voice",
+  mode: "manual",
 };
 
 const PK = "tp.profile";
 const SK = "tp.script";
+const MODE_MIGRATION_KEY = "tp.mode-migration.v1";
 
 export function loadProfile(): Profile {
   try {
-    return { ...DEFAULT_PROFILE, ...JSON.parse(localStorage.getItem(PK) || "{}") };
+    const profile = { ...DEFAULT_PROFILE, ...JSON.parse(localStorage.getItem(PK) || "{}") } as Profile;
+    if (localStorage.getItem(MODE_MIGRATION_KEY) !== "1") {
+      profile.mode = "manual";
+      localStorage.setItem(MODE_MIGRATION_KEY, "1");
+    }
+    return profile;
   } catch {
     return DEFAULT_PROFILE;
   }
