@@ -457,6 +457,13 @@ function FilmSurface(p: {
                   ref={active ? curRef : undefined}
                   onClick={() => p.setPos(segment.startWord)}
                   className={`script-word ${active ? "word-current" : passed ? "word-read" : ""}`}
+                  style={active ? {
+                    backgroundColor: "var(--accent)",
+                    color: "var(--accent-foreground)",
+                    WebkitBoxDecorationBreak: "clone",
+                    boxDecorationBreak: "clone",
+                  } : undefined}
+                  aria-current={active ? "true" : undefined}
                   title={segment.cue}
                 >
                   {p.words.slice(segment.startWord, segment.endWord).map((word, offset) => (
