@@ -103,7 +103,7 @@ export const Route = createFileRoute("/api/script")({
               while (true) {
                 const { value, done } = await reader.read();
                 pending += decoder.decode(value, { stream: !done });
-                const lines = pending.split(/\\r?\\n/);
+                const lines = pending.split(/\r?\n/);
                 pending = lines.pop() ?? "";
                 for (const line of lines) sendLine(line);
                 if (done) {
