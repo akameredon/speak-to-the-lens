@@ -10,7 +10,6 @@ import {
   loadCurrentScript, loadProfile, loadScripts, pickMime, putRecording, saveProfile, saveScript, setCurrentScript,
 } from "@/lib/store";
 import { speechSupported, useSpeech } from "./useSpeech";
-import { streamScript } from "./ai";
 import {
   advanceRecognizedDeliveryGroup, autoAdvanceDelay, currentDeliverySegment, nextDeliveryPosition, previousDeliveryPosition, DELIVERY_STYLES, DELIVERY_STYLE_LABELS,
   type DeliveryMap, type DeliveryStyle,
@@ -34,6 +33,7 @@ export default function Teleprompter() {
   const [help, setHelp] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
   const [camReady, setCamReady] = useState(false);
+  const [cameraRequested, setCameraRequested] = useState(false);
   const [deliveryMap, setDeliveryMap] = useState<DeliveryMap | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -66,9 +66,9 @@ export default function Teleprompter() {
   useEffect(() => void refreshTakes(), [refreshTakes]);
   useEffect(() => setPos((p) => Math.min(p, words.length)), [words.length]);
 
-  // camera
+  // Camera and microphone remain off until the speaker explicitly enables them.
   useEffect(() => {
-    if (tab !== "film") return;
+    if (tab !== "film" || !cameraRequested) return;
     let cancelled = false;
     (async () => {
       if (!navigator.mediaDevices?.getUserMedia) {
@@ -101,7 +101,7 @@ export default function Teleprompter() {
       streamRef.current = null;
       setCamReady(false);
     };
-  }, [profile.camera, tab]);
+  }, [cameraRequested, profile.camera, tab]);
   useEffect(() => () => streamRef.current?.getTracks().forEach((t) => t.stop()), []);
 
   // voice
@@ -168,7 +168,12 @@ export default function Teleprompter() {
 
   const startRecording = () => {
     const s = streamRef.current;
-    if (!s || typeof MediaRecorder === "undefined") {
+    if (!s) {
+      setCameraRequested(true);
+      toast(cameraRequested ? "Camera is starting — try Record again when the preview appears." : "Allow camera and microphone access, then tap Record again.");
+      return;
+    }
+    if (typeof MediaRecorder === "undefined") {
       setNotice({ title: "Recording not available", body: "This browser can't record video. Try Safari on iPhone (iOS 14.3+) or Chrome on Android." });
       return;
     }
@@ -268,6 +273,8 @@ export default function Teleprompter() {
           <FilmSurface
             videoRef={videoRef}
             camReady={camReady}
+            cameraRequested={cameraRequested}
+            onEnableCamera={() => setCameraRequested(true)}
             profile={profile}
             words={words}
             deliveryMap={deliveryMap}
@@ -377,6 +384,8 @@ export default function Teleprompter() {
 export function FilmSurface(p: {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   camReady: boolean;
+  cameraRequested: boolean;
+  onEnableCamera: () => void;
   profile: Profile;
   words: string[];
   deliveryMap: DeliveryMap | null;
@@ -439,8 +448,23 @@ export function FilmSurface(p: {
         className={`absolute inset-0 h-full w-full object-cover ${p.profile.camera === "user" ? "-scale-x-100" : ""}`}
       />
       {!p.camReady && (
-        <div className="absolute inset-0 flex items-center justify-center bg-card text-sm text-muted-foreground">
-          <Camera className="mr-2 h-4 w-4" /> Waiting for camera…
+        <div className="absolute inset-0 z-0 flex items-center justify-center bg-card/95 px-6 text-center">
+          <div className="mx-auto flex max-w-xs flex-col items-center gap-3">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-background text-accent">
+              <Camera className="h-7 w-7" />
+            </div>
+            <div>
+              <p className="text-base font-bold text-foreground">Your speaking studio is ready</p>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                {p.cameraRequested ? "Starting your camera and microphone…" : "Your script is ready. Camera and microphone stay off until you choose to enable them."}
+              </p>
+            </div>
+            {!p.cameraRequested && (
+              <button onClick={p.onEnableCamera} className="app-primary tap-target w-full justify-center">
+                Enable camera &amp; microphone
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -664,7 +688,7 @@ function ScriptEditor({
     setBusy(true);
     const before = script.body;
     let last = before;
-    const r = await streamScript({ kind: "polish", text: before }, (t) => { last = t; setScript({ ...script, body: t }); }).catch(() => ({ text: "", error: "Couldn't reach the writer." }));
+    const r = await import("./ai").then(({ streamScript }) => streamScript({ kind: "polish", text: before }, (t) => { last = t; setScript({ ...script, body: t }); })).catch(() => ({ text: "", error: "Couldn't reach the writer." }));
     setBusy(false);
     if (r.error) { setScript({ ...script, body: before }); toast(r.error); }
     else if (last) toast("Polished for reading aloud");
@@ -759,7 +783,7 @@ function Writer({ onStream, onStart }: { onStream: (t: string) => void; onStart:
     if (!topic.trim() || writing) return;
     setWriting(true);
     setDraft("");
-    const r = await streamScript({ kind: "write", topic: topic.trim(), tone, length }, setDraft).catch(() => ({ text: "", error: "Couldn't reach the writer." }));
+    const r = await import("./ai").then(({ streamScript }) => streamScript({ kind: "write", topic: topic.trim(), tone, length }, setDraft)).catch(() => ({ text: "", error: "Couldn't reach the writer." }));
     setWriting(false);
     if (r.error) {
       toast(r.error);
