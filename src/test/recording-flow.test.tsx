@@ -49,7 +49,10 @@ afterEach(() => {
 describe("camera-to-recording workflow", () => {
   it("captures a take, previews it, verifies local save, lists it and starts a download", async () => {
     render(<Teleprompter />);
+    expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Enable camera & microphone" }));
     await waitFor(() => expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByText(/Starting your camera and microphone/)).not.toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: "Record" }));
     expect(screen.getByRole("button", { name: "Stop recording" })).toBeInTheDocument();
