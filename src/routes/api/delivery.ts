@@ -53,7 +53,7 @@ Rules:
             body: JSON.stringify({
               model: MODEL,
               temperature: 0.2,
-              max_completion_tokens: 4096,
+              max_completion_tokens: 8192,
               response_format: { type: "json_object" },
               messages: [
                 { role: "system", content: system },
