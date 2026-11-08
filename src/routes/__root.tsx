@@ -81,11 +81,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
-      { title: "Teleprompter" },
-      { name: "description", content: "Your script by the lens, following your voice." },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Teleprompter" },
-      { property: "og:description", content: "Your script by the lens, following your voice." },
+      { title: "Speak to the Lens" },
+      { name: "description", content: "A focused teleprompter and speaking coach for natural delivery on camera." },
+      { name: "author", content: "Speak to the Lens" },
+      { property: "og:title", content: "Speak to the Lens" },
+      { property: "og:description", content: "Prepare your script, follow natural speaking phrases, record yourself and review your takes." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
 
