@@ -6,8 +6,8 @@ import {
 import { toast } from "sonner";
 import { advance, tokenize } from "@/lib/follow";
 import {
-  type Profile, type Recording, type Script, deleteRecording, extFor, fmtTime, listRecordings,
-  loadProfile, loadScript, pickMime, putRecording, saveProfile, saveScript,
+  type Profile, type Recording, type Script, createScript, deleteRecording, deleteScript, extFor, fmtTime, listRecordings,
+  loadCurrentScript, loadProfile, loadScripts, pickMime, putRecording, saveProfile, saveScript, setCurrentScript,
 } from "@/lib/store";
 import { speechSupported, useSpeech } from "./useSpeech";
 import { streamScript } from "./ai";
@@ -17,7 +17,8 @@ type Notice = { title: string; body: string; action?: { label: string; run: () =
 
 export default function Teleprompter() {
   const [profile, setProfile] = useState<Profile>(loadProfile);
-  const [script, setScript] = useState<Script>(loadScript);
+  const [script, setScript] = useState<Script>(loadCurrentScript);
+  const [scripts, setScripts] = useState<Script[]>(loadScripts);
   const [tab, setTab] = useState<Tab>("film");
   const [pos, setPos] = useState(0);
   const [running, setRunning] = useState(false);
@@ -44,7 +45,10 @@ export default function Teleprompter() {
   // persist
   useEffect(() => saveProfile(profile), [profile]);
   useEffect(() => {
-    const t = setTimeout(() => saveScript({ ...script, savedAt: Date.now() }), 400);
+    const t = setTimeout(() => {
+      saveScript({ ...script, savedAt: Date.now() });
+      setScripts(loadScripts());
+    }, 400);
     return () => clearTimeout(t);
   }, [script]);
   const refreshTakes = useCallback(() => listRecordings().then(setTakes).catch(() => setTakes([])), []);
@@ -80,7 +84,12 @@ export default function Teleprompter() {
         else setNotice({ title: "Camera didn't start", body: "Another app may be using the camera. Close it and try again." });
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      setCamReady(false);
+    };
   }, [profile.camera, tab]);
   useEffect(() => () => streamRef.current?.getTracks().forEach((t) => t.stop()), []);
 
@@ -177,6 +186,30 @@ export default function Teleprompter() {
     stopReading();
   };
 
+  const chooseScript = (id: string) => {
+    const selected = setCurrentScript(id);
+    if (!selected) return;
+    setScript(selected);
+    setScripts(loadScripts());
+    setPos(0);
+  };
+  const addScript = () => {
+    const created = createScript();
+    setScript(created);
+    setScripts(loadScripts());
+    setPos(0);
+    setTab("script");
+  };
+  const removeScript = () => {
+    if (scripts.length <= 1) return toast("Keep at least one script on this device.");
+    if (!confirm("Delete this script from this device?")) return;
+    const next = deleteScript(script.id);
+    setScript(next);
+    setScripts(loadScripts());
+    setPos(0);
+    toast("Script deleted from this device.");
+  };
+
   const upd = (p: Partial<Profile>) => setProfile((x) => ({ ...x, ...p }));
 
   return (
@@ -213,7 +246,15 @@ export default function Teleprompter() {
           />
         )}
         {tab === "script" && (
-          <ScriptEditor script={script} setScript={(s) => { setScript(s); setPos(0); }} onWrite={() => setTab("write")} />
+          <ScriptEditor
+            script={script}
+            scripts={scripts}
+            setScript={(s) => { setScript(s); setPos(0); }}
+            onSelectScript={chooseScript}
+            onNewScript={addScript}
+            onDeleteScript={removeScript}
+            onWrite={() => setTab("write")}
+          />
         )}
         {tab === "write" && (
           <Writer
@@ -396,7 +437,17 @@ function Round({ children, label, onClick, active, disabled }: { children: React
 }
 
 /* ---------------- Script ---------------- */
-function ScriptEditor({ script, setScript, onWrite }: { script: Script; setScript: (s: Script) => void; onWrite: () => void }) {
+function ScriptEditor({
+  script, scripts, setScript, onSelectScript, onNewScript, onDeleteScript, onWrite,
+}: {
+  script: Script;
+  scripts: Script[];
+  setScript: (s: Script) => void;
+  onSelectScript: (id: string) => void;
+  onNewScript: () => void;
+  onDeleteScript: () => void;
+  onWrite: () => void;
+}) {
   const [busy, setBusy] = useState(false);
   const words = tokenize(script.body).length;
   const paste = async () => {
@@ -423,6 +474,18 @@ function ScriptEditor({ script, setScript, onWrite }: { script: Script; setScrip
       <div className="flex items-baseline justify-between">
         <h1 className="text-2xl font-extrabold">Script</h1>
         <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground"><Check className="h-3.5 w-3.5" /> Autosaved · {words} words · ~{Math.max(1, Math.round(words / 2.5))}s</span>
+      </div>
+      <div className="flex gap-2">
+        <select
+          aria-label="Saved scripts"
+          value={script.id}
+          onChange={(e) => onSelectScript(e.target.value)}
+          className="min-w-0 flex-1 rounded-xl bg-card px-3 py-2 text-sm font-semibold"
+        >
+          {scripts.map((item) => <option key={item.id} value={item.id}>{item.title || "Untitled script"}</option>)}
+        </select>
+        <button onClick={onNewScript} className="rounded-xl bg-secondary px-3 py-2 text-sm font-bold">New</button>
+        <button onClick={onDeleteScript} disabled={scripts.length <= 1} className="rounded-xl bg-secondary px-3 py-2 text-sm font-bold text-primary disabled:opacity-40">Delete</button>
       </div>
       <input value={script.title} onChange={(e) => setScript({ ...script, title: e.target.value })} aria-label="Script title"
         className="rounded-2xl bg-card px-4 py-3 text-lg font-bold outline-none focus:ring-2 focus:ring-ring" />
