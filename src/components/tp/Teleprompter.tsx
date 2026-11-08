@@ -153,7 +153,13 @@ export default function Teleprompter() {
       return;
     }
     const mime = pickMime();
-    const r = new MediaRecorder(s, mime ? { mimeType: mime } : undefined);
+    let r: MediaRecorder;
+    try {
+      r = new MediaRecorder(s, mime ? { mimeType: mime } : undefined);
+    } catch {
+      setNotice({ title: "Recording format unavailable", body: "This browser could not start a recording with its supported video format. Try another browser or update this one." });
+      return;
+    }
     chunksRef.current = [];
     r.ondataavailable = (e) => e.data.size && chunksRef.current.push(e.data);
     r.onstop = () => {
@@ -174,14 +180,25 @@ export default function Teleprompter() {
     thumbRef.current = grabThumb();
     startRef.current = Date.now();
     setElapsed(0);
-    r.start(1000);
-    recorderRef.current = r;
-    setRecording(true);
-    if (!running) startReading();
+    try {
+      r.start(1000);
+      recorderRef.current = r;
+      setRecording(true);
+      if (!running) startReading();
+    } catch {
+      recorderRef.current = null;
+      setRecording(false);
+      setNotice({ title: "Recording could not start", body: "The browser refused to start video recording. Check camera and microphone permissions, then try again." });
+    }
   };
   const stopRecording = () => {
-    recorderRef.current?.stop();
+    const active = recorderRef.current;
     recorderRef.current = null;
+    try {
+      if (active && active.state !== "inactive") active.stop();
+    } catch {
+      setNotice({ title: "Recording could not finish", body: "The browser interrupted the recording. Any completed take may not be recoverable." });
+    }
     setRecording(false);
     stopReading();
   };
@@ -238,8 +255,8 @@ export default function Teleprompter() {
               upd({ mode: next });
               if (running) {
                 if (next === "voice") {
-                  if (speechSupported()) { speech.start(); setActiveMode("voice"); }
-                  else toast("Voice following isn't supported here.");
+                  if (speechSupported()) { setActiveMode("voice"); speech.start(); }
+                  else { setActiveMode("auto"); toast("Voice following isn't supported here."); }
                 } else { speech.stop(); setActiveMode("auto"); }
               } else setActiveMode(next);
             }}
