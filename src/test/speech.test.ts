@@ -3,7 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { useSpeech } from "@/components/tp/useSpeech";
 
 class FakeRecognition {
-  constructor() { latestRecognition = this; }
+  static latest: FakeRecognition | undefined;
+  constructor() { FakeRecognition.latest = this; }
   continuous = false;
   interimResults = false;
   lang = "";
@@ -28,7 +29,7 @@ describe("speech recognition lifecycle", () => {
     const { result, unmount } = renderHook(() => useSpeech(onPhrase, onFail));
     act(() => result.current.start());
     expect(result.current.listening).toBe(true);
-    const instance = latestRecognition;
+    const instance = FakeRecognition.latest;
     const results = [{ 0: { transcript: "hello everyone" }, isFinal: true }] as unknown as ArrayLike<ArrayLike<{ transcript: string }> & { isFinal?: boolean }>;
     act(() => instance?.onresult?.({ resultIndex: 0, results }));
     expect(onPhrase).toHaveBeenCalledWith("hello everyone");
@@ -51,4 +52,3 @@ describe("speech recognition lifecycle", () => {
   });
 });
 
-let latestRecognition: FakeRecognition | undefined;
