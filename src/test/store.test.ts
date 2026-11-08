@@ -29,7 +29,7 @@ describe("on-device script library", () => {
     const first = createScript("First take");
     const second = createScript("Second take");
 
-    expect(loadScripts()).toHaveLength(2);
+    expect(loadScripts()).toHaveLength(3);
     expect(loadCurrentScript().id).toBe(second.id);
     expect(setCurrentScript(first.id)?.id).toBe(first.id);
     expect(loadCurrentScript().id).toBe(first.id);
@@ -41,7 +41,7 @@ describe("on-device script library", () => {
 
     saveScript({ ...first, title: "Updated first take", body: "Updated words." });
 
-    expect(loadScripts()).toHaveLength(2);
+    expect(loadScripts()).toHaveLength(3);
     expect(loadScripts().find((item) => item.id === first.id)?.body).toBe("Updated words.");
     expect(loadCurrentScript().id).toBe(first.id);
   });
@@ -59,6 +59,7 @@ describe("on-device script library", () => {
 
   it("never deletes the final remaining script", () => {
     const only = createScript("Only script");
+    localStorage.setItem("tp.scripts", JSON.stringify([only]));
 
     expect(deleteScript(only.id).id).toBe(only.id);
     expect(loadScripts()).toHaveLength(1);
