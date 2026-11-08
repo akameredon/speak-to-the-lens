@@ -369,7 +369,7 @@ export default function Teleprompter() {
 }
 
 /* ---------------- Film ---------------- */
-function FilmSurface(p: {
+export function FilmSurface(p: {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   camReady: boolean;
   profile: Profile;
@@ -418,7 +418,9 @@ function FilmSurface(p: {
     const boxRect = box.getBoundingClientRect();
     const phraseRect = el.getBoundingClientRect();
     const phraseTop = phraseRect.top - boxRect.top + box.scrollTop;
-    box.scrollTo({ top: Math.max(0, phraseTop - box.clientHeight * 0.3), behavior: "smooth" });
+    const top = Math.max(0, phraseTop - box.clientHeight * 0.3);
+    if (typeof box.scrollTo === "function") box.scrollTo({ top, behavior: "smooth" });
+    else box.scrollTop = top;
   }, [p.pos, p.profile.fontSize]);
 
   return (
