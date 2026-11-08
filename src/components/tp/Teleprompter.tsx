@@ -12,7 +12,7 @@ import {
 import { speechSupported, useSpeech } from "./useSpeech";
 import { streamScript } from "./ai";
 import {
-  advanceRecognizedDeliveryGroup, currentDeliverySegment, nextDeliveryPosition, previousDeliveryPosition, DELIVERY_STYLES, DELIVERY_STYLE_LABELS,
+  advanceRecognizedDeliveryGroup, autoAdvanceDelay, currentDeliverySegment, nextDeliveryPosition, previousDeliveryPosition, DELIVERY_STYLES, DELIVERY_STYLE_LABELS,
   type DeliveryMap, type DeliveryStyle,
 } from "@/lib/delivery";
 
@@ -120,13 +120,9 @@ export default function Teleprompter() {
   // Auto-scroll follows the delivery map's pace and honours rhetorical pauses.
   useEffect(() => {
     if (!running || activeMode !== "auto" || pos >= words.length) return;
-    const wpm = 70 + profile.speed * 16;
     const segment = currentDeliverySegment(deliveryMap, pos);
-    const paceScale = segment?.pace === "slow" ? 1.45
-      : segment?.pace === "measured" ? 1.18
-        : segment?.pace === "brisk" ? 0.82 : 1;
     const previousPause = deliveryMap?.segments.find((item) => item.endWord === pos)?.pauseAfterMs ?? 0;
-    const delay = Math.round((60000 / wpm) * paceScale + previousPause);
+    const delay = autoAdvanceDelay(profile.speed, segment?.pace, previousPause);
     const id = window.setTimeout(() => setPos((current) => Math.min(words.length, current + 1)), delay);
     return () => window.clearTimeout(id);
   }, [running, activeMode, profile.speed, words.length, pos, deliveryMap]);
