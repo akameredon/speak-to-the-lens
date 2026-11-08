@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { DELIVERY_STYLES, validateDeliverySegments, type DeliveryMap } from "@/lib/delivery";
+import { aiRateLimitResponse, aiRequestSignal, aiRequestTooLarge, checkAiRateLimit } from "@/lib/ai-guard";
 
 const Body = z.object({
   script: z.string().trim().min(1).max(8000),
@@ -16,6 +17,9 @@ export const Route = createFileRoute("/api/delivery")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const rate = checkAiRateLimit(request, "delivery", 4);
+        if (!rate.allowed) return aiRateLimitResponse(rate.retryAfterSeconds);
+        if (aiRequestTooLarge(request, 12_000)) return Response.json({ error: "This script is too large to analyse in one request." }, { status: 413 });
         const parsed = Body.safeParse(await request.json().catch(() => null));
         if (!parsed.success) return Response.json({ error: "Invalid delivery-coaching request." }, { status: 400 });
 
@@ -46,6 +50,7 @@ Rules:
 - Do not add stage directions to the script; this is metadata only.`;
 
         let upstream: Response;
+        const signal = aiRequestSignal(request);
         try {
           upstream = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
@@ -53,17 +58,20 @@ Rules:
             body: JSON.stringify({
               model: MODEL,
               temperature: 0.2,
-              max_completion_tokens: 8192,
+              max_completion_tokens: 4096,
               response_format: { type: "json_object" },
               messages: [
                 { role: "system", content: system },
                 { role: "user", content: `Selected speech style: ${style}. Audience: ${audience}. Setting: ${setting}. Speaker experience: ${experience}. The script contains exactly ${words.length} whitespace-separated words. Analyse it completely and map all words.\n\nSCRIPT:\n${script}` },
               ],
             }),
-            signal: request.signal,
+            signal,
           });
         } catch {
-          return Response.json({ error: "Groq could not be reached. Check your connection and try again." }, { status: 502 });
+          return Response.json(
+            { error: request.signal.aborted ? "The request was cancelled." : "The AI request timed out. Try a shorter script or try again." },
+            { status: request.signal.aborted ? 499 : 504, headers: { "Cache-Control": "no-store" } },
+          );
         }
 
         if (!upstream.ok) {
