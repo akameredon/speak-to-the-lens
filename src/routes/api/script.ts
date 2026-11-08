@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { aiRateLimitResponse, aiRequestSignal, aiRequestTooLarge, checkAiRateLimit } from "@/lib/ai-guard";
+import { aiRateLimitResponse, aiRequestSignal, aiRequestTooLarge, checkAiRateLimit, isSameOriginAiRequest } from "@/lib/ai-guard";
 
 const Body = z.discriminatedUnion("kind", [
   z.object({
@@ -30,6 +30,7 @@ export const Route = createFileRoute("/api/script")({
       POST: async ({ request }) => {
         const rate = checkAiRateLimit(request, "script", 8);
         if (!rate.allowed) return aiRateLimitResponse(rate.retryAfterSeconds);
+        if (!isSameOriginAiRequest(request)) return new Response("This AI endpoint only accepts requests from the app.", { status: 403 });
         if (aiRequestTooLarge(request, 12_000)) return new Response("This request is too large.", { status: 413 });
         const rawBody = await request.text().catch(() => "");
         if (new TextEncoder().encode(rawBody).byteLength > 12_000) return new Response("This request is too large.", { status: 413 });
