@@ -5,7 +5,7 @@ const script = "Hey everyone! Today I'll share three quick tricks. First, treat 
 const valid = [
   { startWord: 0, endWord: 2, pace: "natural", pitch: "steady", volume: "conversational", emotion: "warm", emphasis: [0], pauseAfterMs: 250, cue: "Warm opening" },
   { startWord: 2, endWord: 7, pace: "brisk", pitch: "lift", volume: "conversational", emotion: "confident", emphasis: [4, 5], pauseAfterMs: 500, cue: "Build interest" },
-  { startWord: 7, endWord: 13, pace: "measured", pitch: "fall", volume: "conversational", emotion: "neutral", emphasis: [], pauseAfterMs: 350, cue: "Explain clearly" },
+  { startWord: 7, endWord: 14, pace: "measured", pitch: "fall", volume: "conversational", emotion: "neutral", emphasis: [], pauseAfterMs: 350, cue: "Explain clearly" },
 ];
 
 describe("Speak Intelligence phrase map validation", () => {
