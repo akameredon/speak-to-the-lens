@@ -42,6 +42,7 @@ export default function Teleprompter() {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const startRef = useRef(0);
+  const pendingRecordRef = useRef(false);
   const thumbRef = useRef<string | undefined>(undefined);
 
   const words = useMemo(() => tokenize(script.body), [script.body]);
@@ -75,6 +76,7 @@ export default function Teleprompter() {
     let cancelled = false;
     (async () => {
       if (!navigator.mediaDevices?.getUserMedia) {
+        pendingRecordRef.current = false;
         setCameraRequested(false);
         setNotice({ title: "Camera not available", body: "This browser can't open the camera. Try Safari on iPhone or Chrome on Android, over a secure (https) link." });
         return;
@@ -91,6 +93,7 @@ export default function Teleprompter() {
         setCamReady(true);
       } catch (e) {
         const name = (e as DOMException).name;
+        pendingRecordRef.current = false;
         setCamReady(false);
         setCameraRequested(false);
         if (name === "NotAllowedError")
@@ -174,8 +177,11 @@ export default function Teleprompter() {
   const startRecording = () => {
     const s = streamRef.current;
     if (!s) {
+      // A deliberate Record tap is the user's permission gesture. Continue the
+      // recording automatically as soon as the camera stream becomes available.
+      pendingRecordRef.current = true;
       setCameraRequested(true);
-      toast(cameraRequested ? "Camera is starting — try Record again when the preview appears." : "Allow camera and microphone access, then tap Record again.");
+      toast("Starting camera — recording will begin automatically when it is ready.");
       return;
     }
     if (typeof MediaRecorder === "undefined") {
@@ -230,6 +236,12 @@ export default function Teleprompter() {
       setNotice({ title: "Recording could not start", body: "The browser refused to start video recording. Check camera and microphone permissions, then try again." });
     }
   };
+  useEffect(() => {
+    if (!camReady || !pendingRecordRef.current) return;
+    pendingRecordRef.current = false;
+    startRecording();
+  }, [camReady, startRecording]);
+
   const stopRecording = () => {
     const active = recorderRef.current;
     recorderRef.current = null;
