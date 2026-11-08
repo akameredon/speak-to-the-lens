@@ -8,8 +8,9 @@ export type RateLimitResult = {
 };
 
 /**
- * Best-effort per-instance protection. Production requests are also protected
- * by Vercel's distributed firewall rate-limit rules.
+ * Best-effort per-instance protection. This is not a distributed limiter:
+ * serverless instances can have separate counters, so platform-level WAF
+ * protection requires a Vercel plan that supports IP-based rate-limit keys.
  */
 export function checkAiRateLimit(
   request: Request,
