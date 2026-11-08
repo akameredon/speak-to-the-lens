@@ -262,7 +262,7 @@ export default function Teleprompter() {
   const upd = (p: Partial<Profile>) => setProfile((x) => ({ ...x, ...p }));
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-background text-foreground">
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-background text-foreground selection:bg-accent selection:text-accent-foreground">
       <div className="relative flex-1 overflow-hidden">
         {tab === "film" && (
           <FilmSurface
@@ -323,7 +323,7 @@ export default function Teleprompter() {
         {tab === "takes" && <Takes takes={takes} refresh={refreshTakes} onOpen={setReview} />}
       </div>
 
-      <nav aria-label="Main navigation" className="flex border-t border-border bg-background pb-[env(safe-area-inset-bottom)]">
+      <nav aria-label="Main navigation" className="app-nav z-20 flex shrink-0 pb-[env(safe-area-inset-bottom)]">
         {([
           ["film", "Film", Camera],
           ["script", "Script", FileText],
@@ -338,7 +338,7 @@ export default function Teleprompter() {
               setTab(k);
             }}
             aria-current={tab === k ? "page" : undefined}
-            className={`flex flex-1 flex-col items-center gap-1 py-2.5 text-xs font-medium ${tab === k ? "text-primary" : "text-muted-foreground"}`}
+            className={`tap-target control-transition relative flex flex-1 flex-col items-center justify-center gap-1.5 py-2.5 text-[11px] font-semibold tracking-wide ${tab === k ? "text-primary" : "text-muted-foreground"}`}
           >
             <Icon className="h-5 w-5" />
             {label}
@@ -430,7 +430,7 @@ export function FilmSurface(p: {
   }, [pos, fontSize]);
 
   return (
-    <div className="absolute inset-0">
+    <div className="absolute inset-0 isolate bg-background">
       <video
         ref={p.videoRef}
         autoPlay
@@ -445,30 +445,30 @@ export function FilmSurface(p: {
       )}
 
       {/* near-lens panel */}
-      <div className="absolute inset-x-0 top-0 bg-panel pt-[env(safe-area-inset-top)] backdrop-blur-md">
-        <div className="flex items-center justify-between px-4 pt-3 text-xs font-medium text-muted-foreground">
-          <button onClick={p.onSwitchMode} className="flex items-center gap-1.5 rounded-full bg-scrim px-3 py-1.5">
+      <div className="absolute inset-x-0 top-0 z-10 border-b border-white/10 bg-panel pt-[env(safe-area-inset-top)] shadow-[0_12px_40px_rgba(0,0,0,0.22)] backdrop-blur-2xl">
+        <div className="flex items-center justify-between gap-3 px-4 pt-3 text-xs font-medium text-muted-foreground">
+          <button onClick={p.onSwitchMode} className="tap-target control-transition flex items-center gap-1.5 rounded-full border border-white/10 bg-scrim px-3 py-2">
             {p.activeMode === "voice" ? <Mic className="h-3.5 w-3.5 text-accent" /> : p.activeMode === "auto" ? <Timer className="h-3.5 w-3.5 text-accent" /> : <Play className="h-3.5 w-3.5 text-accent" />}
             {p.activeMode === "voice" ? (p.listening ? "Voice follow · listening" : "Voice follow") : p.activeMode === "auto" ? "Auto pace" : "Tap to advance"}
           </button>
           {p.recording ? (
-            <span className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 font-bold text-primary-foreground">
+            <span className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-2 font-bold text-primary-foreground shadow-lg">
               <span className="rec-pulse h-2 w-2 rounded-full bg-primary-foreground" /> {fmtTime(p.elapsed)}
             </span>
           ) : (
-            <button onClick={p.onHelp} className="flex items-center gap-1.5 rounded-full bg-scrim px-3 py-1.5">
+            <button onClick={p.onHelp} className="tap-target control-transition flex items-center gap-1.5 rounded-full border border-white/10 bg-scrim px-3 py-2">
               <Headphones className="h-3.5 w-3.5" /> Audio tips
             </button>
           )}
         </div>
         {activeDelivery && (
-          <div className="space-y-1 px-4 pb-2">
+          <div className="space-y-2 px-4 pb-3 pt-2">
             <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold">
-              <span className="rounded-full bg-accent px-2 py-1 text-accent-foreground">Group {activeIndex + 1} / {p.deliveryMap?.segments.length}</span>
-              <span className="rounded-full bg-scrim px-2 py-1">{activeDelivery.pace}</span>
-            <span className="rounded-full bg-scrim px-2 py-1">{activeDelivery.emotion}</span>
-            <span className="rounded-full bg-scrim px-2 py-1">Pitch: {activeDelivery.pitch}</span>
-            <span className="rounded-full bg-scrim px-2 py-1">Volume: {activeDelivery.volume}</span>
+              <span className="rounded-full bg-accent px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-accent-foreground">Group {activeIndex + 1} / {p.deliveryMap?.segments.length}</span>
+              <span className="rounded-full border border-white/10 bg-scrim px-2.5 py-1">{activeDelivery.pace}</span>
+            <span className="rounded-full border border-white/10 bg-scrim px-2.5 py-1">{activeDelivery.emotion}</span>
+            <span className="rounded-full border border-white/10 bg-scrim px-2.5 py-1">Pitch: {activeDelivery.pitch}</span>
+            <span className="rounded-full border border-white/10 bg-scrim px-2.5 py-1">Volume: {activeDelivery.volume}</span>
             <span className="text-muted-foreground">{activeDelivery.cue}</span>
               {activeDelivery.pauseAfterMs > 0 && <span className="text-muted-foreground">Pause {activeDelivery.pauseAfterMs} ms after phrase</span>}
             </div>
@@ -482,7 +482,7 @@ export function FilmSurface(p: {
         )}
         <div
           ref={boxRef}
-          className="relative h-[34vh] overflow-y-auto px-5 pb-6 pt-2 [scrollbar-width:none]"
+          className="hide-scrollbar relative h-[32dvh] min-h-[190px] max-h-[360px] overflow-y-auto px-5 pb-8 pt-3"
           style={{ transform: p.profile.mirror ? "scaleX(-1)" : undefined }}
         >
           <p className="font-extrabold leading-[1.25] tracking-tight" style={{ fontSize: p.profile.fontSize }}>
@@ -526,15 +526,15 @@ export function FilmSurface(p: {
       </div>
 
       {/* thumb controls */}
-      <div className="absolute inset-x-0 bottom-0 space-y-3 bg-gradient-to-t from-background/90 to-transparent px-4 pb-4 pt-10">
+      <div className="absolute inset-x-0 bottom-0 z-10 space-y-3 bg-gradient-to-t from-background via-background/95 to-transparent px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-12">
         {p.activeMode === "manual" && (
           <div className="flex justify-center">
-            <button onClick={p.onAdvance} disabled={p.pos >= p.words.length} className="rounded-full border border-white/15 bg-background/75 px-6 py-2.5 text-sm font-bold shadow-lg backdrop-blur-xl disabled:opacity-40">
+            <button onClick={p.onAdvance} disabled={p.pos >= p.words.length} className="app-secondary tap-target shadow-xl backdrop-blur-xl disabled:opacity-40">
               Done · Next {p.deliveryMap ? "phrase" : "sentence"} <span aria-hidden="true">→</span>
             </button>
           </div>
         )}
-        <div className="flex items-center gap-3 rounded-3xl border border-white/10 bg-scrim/80 p-3 shadow-lg backdrop-blur-xl">
+        <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-scrim/90 p-3 shadow-2xl backdrop-blur-2xl">
           <Control label="Size" value={`${p.profile.fontSize}px`}>
             <input type="range" min={22} max={56} value={p.profile.fontSize} onChange={(e) => p.upd({ fontSize: +e.target.value })} className="w-full accent-[var(--accent)]" aria-label="Font size" />
           </Control>
@@ -542,8 +542,8 @@ export function FilmSurface(p: {
             <input type="range" min={1} max={10} value={p.profile.speed} onChange={(e) => p.upd({ speed: +e.target.value })} className="w-full accent-[var(--accent)]" aria-label="Scroll speed" />
           </Control>}
           <div className="flex flex-col gap-1">
-            <button aria-label="Previous phrase" onClick={p.onPrevious} className="rounded-full bg-secondary p-1.5"><ArrowUp className="h-4 w-4" /></button>
-            <button aria-label="Next phrase" onClick={p.onAdvance} className="rounded-full bg-secondary p-1.5"><ArrowDown className="h-4 w-4" /></button>
+            <button aria-label="Previous phrase" onClick={p.onPrevious} className="tap-target control-transition flex items-center justify-center rounded-xl border border-border bg-secondary"><ArrowUp className="h-4 w-4" /></button>
+            <button aria-label="Next phrase" onClick={p.onAdvance} className="tap-target control-transition flex items-center justify-center rounded-xl border border-border bg-secondary"><ArrowDown className="h-4 w-4" /></button>
           </div>
         </div>
         <div className="flex items-center justify-between">
@@ -554,7 +554,7 @@ export function FilmSurface(p: {
           <button
             aria-label={p.recording ? "Stop recording" : "Record"}
             onClick={p.onRecord}
-            className="flex h-[76px] w-[76px] items-center justify-center rounded-full border-4 border-foreground"
+            className="tap-target control-transition flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-full border-[3px] border-foreground shadow-[0_0_0_7px_rgba(255,255,255,0.08)]"
           >
             <span className={`bg-primary transition-all ${p.recording ? "h-7 w-7 rounded-md" : "h-14 w-14 rounded-full"}`} />
           </button>
@@ -581,7 +581,7 @@ function Control({ label, value, children }: { label: string; value: string; chi
 function Round({ children, label, onClick, active, disabled }: { children: React.ReactNode; label: string; onClick: () => void; active?: boolean; disabled?: boolean }) {
   return (
     <button aria-label={label} title={label} disabled={disabled} onClick={onClick}
-      className={`flex h-12 w-12 items-center justify-center rounded-full backdrop-blur-md disabled:opacity-40 ${active ? "bg-accent text-accent-foreground" : "bg-scrim text-foreground"}`}>
+      className={`tap-target control-transition flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 backdrop-blur-md disabled:opacity-40 ${active ? "bg-accent text-accent-foreground" : "bg-scrim text-foreground"}`}>
       {children}
     </button>
   );
@@ -670,9 +670,9 @@ function ScriptEditor({
     else if (last) toast("Polished for reading aloud");
   };
   return (
-    <div className="flex h-full flex-col gap-3 overflow-y-auto p-4 pt-[calc(env(safe-area-inset-top)+1rem)]">
+    <div className="app-page">
       <div className="flex items-baseline justify-between">
-        <h1 className="text-2xl font-extrabold">Script</h1>
+        <h1 className="app-page-title">Script</h1>
         <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground"><Check className="h-3.5 w-3.5" /> Autosaved · {words} words · ~{Math.max(1, Math.round(words / 2.5))}s</span>
       </div>
       <div className="flex gap-2">
@@ -680,18 +680,18 @@ function ScriptEditor({
           aria-label="Saved scripts"
           value={script.id}
           onChange={(e) => onSelectScript(e.target.value)}
-          className="min-w-0 flex-1 rounded-xl bg-card px-3 py-2 text-sm font-semibold"
+          className="app-field min-w-0 flex-1 font-semibold"
         >
           {scripts.map((item) => <option key={item.id} value={item.id}>{item.title || "Untitled script"}</option>)}
         </select>
-        <button onClick={onNewScript} className="rounded-xl bg-secondary px-3 py-2 text-sm font-bold">New</button>
-        <button onClick={onDeleteScript} disabled={scripts.length <= 1} className="rounded-xl bg-secondary px-3 py-2 text-sm font-bold text-primary disabled:opacity-40">Delete</button>
+        <button onClick={onNewScript} className="app-secondary">New</button>
+        <button onClick={onDeleteScript} disabled={scripts.length <= 1} className="app-secondary text-primary disabled:opacity-40">Delete</button>
       </div>
       <input value={script.title} onChange={(e) => setScript({ ...script, title: e.target.value })} aria-label="Script title"
-        className="rounded-2xl bg-card px-4 py-3 text-lg font-bold outline-none focus:ring-2 focus:ring-ring" />
+        className="app-field rounded-2xl px-4 py-3 text-lg font-bold" />
       <textarea value={script.body} onChange={(e) => setScript({ ...script, body: e.target.value })} aria-label="Script text" placeholder="Type or paste your script…"
-        className="min-h-[45vh] flex-1 resize-none rounded-2xl bg-card p-4 text-lg font-semibold leading-relaxed outline-none focus:ring-2 focus:ring-ring" />
-      <section className="space-y-3 rounded-2xl border border-border bg-card p-3">
+        className="app-field min-h-[42vh] flex-1 resize-none rounded-2xl p-4 text-lg font-medium leading-relaxed" />
+      <section className="app-panel space-y-4 p-4">
         <div className="flex items-center justify-between gap-2">
           <div>
             <h2 className="font-extrabold">Speak Intelligence</h2>
@@ -701,31 +701,31 @@ function ScriptEditor({
         </div>
         <label className="block space-y-1">
           <span className="text-xs font-semibold text-muted-foreground">Speech type</span>
-          <select value={style} onChange={(e) => { setPreferences((current) => ({ ...current, style: e.target.value as DeliveryStyle })); onDeliveryMap(null); }} className="w-full rounded-xl bg-background px-3 py-2 text-sm">
+          <select value={style} onChange={(e) => { setPreferences((current) => ({ ...current, style: e.target.value as DeliveryStyle })); onDeliveryMap(null); }} className="app-field">
             {DELIVERY_STYLES.map((item) => <option key={item} value={item}>{DELIVERY_STYLE_LABELS[item]}</option>)}
           </select>
         </label>
         <label className="block space-y-1">
           <span className="text-xs font-semibold text-muted-foreground">Audience</span>
-          <input value={audience} onChange={(e) => { setPreferences((current) => ({ ...current, audience: e.target.value })); onDeliveryMap(null); }} maxLength={100} className="w-full rounded-xl bg-background px-3 py-2 text-sm" placeholder="e.g. Senior leadership, clients, investors, staff" />
+          <input value={audience} onChange={(e) => { setPreferences((current) => ({ ...current, audience: e.target.value })); onDeliveryMap(null); }} maxLength={100} className="app-field" placeholder="e.g. Senior leadership, clients, investors, staff" />
         </label>
         <div className="grid grid-cols-2 gap-2">
           <label className="space-y-1">
             <span className="text-xs font-semibold text-muted-foreground">Setting</span>
-            <select value={setting} onChange={(e) => { setPreferences((current) => ({ ...current, setting: e.target.value })); onDeliveryMap(null); }} className="w-full rounded-xl bg-background px-2 py-2 text-xs">
+            <select value={setting} onChange={(e) => { setPreferences((current) => ({ ...current, setting: e.target.value })); onDeliveryMap(null); }} className="app-field px-3 py-2 text-xs">
               {["Camera / phone video", "Corporate office / boardroom", "Executive presentation", "Client meeting", "Conference / keynote stage", "Training / workshop", "Small room", "Classroom", "Church / auditorium", "Large stage", "Interview"].map((item) => <option key={item}>{item}</option>)}
             </select>
           </label>
           <label className="space-y-1">
             <span className="text-xs font-semibold text-muted-foreground">Experience</span>
-            <select value={experience} onChange={(e) => { setPreferences((current) => ({ ...current, experience: e.target.value as typeof experience })); onDeliveryMap(null); }} className="w-full rounded-xl bg-background px-2 py-2 text-xs">
+            <select value={experience} onChange={(e) => { setPreferences((current) => ({ ...current, experience: e.target.value as typeof experience })); onDeliveryMap(null); }} className="app-field px-3 py-2 text-xs">
               <option value="beginner">Beginner</option>
               <option value="comfortable">Comfortable</option>
               <option value="experienced">Experienced</option>
             </select>
           </label>
         </div>
-        <button onClick={coachDelivery} disabled={coaching || !script.body.trim()} className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3 font-extrabold text-primary-foreground disabled:opacity-50">
+        <button onClick={coachDelivery} disabled={coaching || !script.body.trim()} className="app-primary w-full">
           <Sparkles className="h-4 w-4" /> {coaching ? "Analysing full script…" : deliveryMap ? "Re-map delivery" : "Map my delivery"}
         </button>
         {deliveryMap && <p className="text-xs font-semibold text-emerald-600">Delivery map ready · {deliveryMap.segments.length} speaking groups · word coverage verified</p>}
@@ -740,7 +740,7 @@ function ScriptEditor({
 }
 function Action({ children, icon, onClick, disabled }: { children: React.ReactNode; icon: React.ReactNode; onClick: () => void; disabled?: boolean }) {
   return (
-    <button onClick={onClick} disabled={disabled} className="flex items-center justify-center gap-1.5 rounded-full bg-secondary py-3 text-sm font-bold disabled:opacity-50">
+    <button onClick={onClick} disabled={disabled} className="app-secondary tap-target flex-1 rounded-xl disabled:opacity-50">
       {icon}{children}
     </button>
   );
@@ -770,20 +770,20 @@ function Writer({ onStream, onStart }: { onStream: (t: string) => void; onStart:
     toast("Script ready — tap Film to read it");
   };
   return (
-    <div className="flex h-full flex-col gap-5 overflow-y-auto p-4 pt-[calc(env(safe-area-inset-top)+1rem)]">
+    <div className="app-page">
       <div>
-        <h1 className="text-2xl font-extrabold">AI Script Writer</h1>
+        <h1 className="app-page-title">AI Script Writer</h1>
         <p className="text-sm font-medium text-muted-foreground">A quick draft, streamed straight into your editor.</p>
       </div>
       <label className="space-y-2">
         <span className="text-xs font-medium text-muted-foreground">Topic</span>
         <textarea value={topic} onChange={(e) => setTopic(e.target.value)} rows={3} placeholder="e.g. Three ways to keep herbs fresh all week"
-          className="w-full resize-none rounded-2xl bg-card p-4 text-base font-semibold outline-none focus:ring-2 focus:ring-ring" />
+          className="app-field min-h-28 resize-none rounded-2xl p-4 text-base font-medium leading-relaxed" />
       </label>
       <Chips label="Tone" options={TONES.map((t) => [t, t] as const)} value={tone} onChange={setTone} />
       <Chips label="Length" options={LENGTHS} value={length} onChange={(v) => setLength(v as typeof length)} />
-      {draft && <div className="max-h-[35vh] overflow-y-auto rounded-2xl bg-card p-4 text-sm leading-relaxed">{draft}</div>}
-      <button onClick={go} disabled={writing || !topic.trim()} className="mt-auto flex items-center justify-center gap-2 rounded-full bg-primary py-4 text-base font-extrabold text-primary-foreground disabled:opacity-50">
+      {draft && <div className="app-panel max-h-[35vh] overflow-y-auto p-4 text-sm leading-relaxed">{draft}</div>}
+      <button onClick={go} disabled={writing || !topic.trim()} className="app-primary mt-auto w-full rounded-2xl py-4 text-base disabled:opacity-50">
         <Sparkles className="h-5 w-5" /> {writing ? "Writing…" : "Write my script"}
       </button>
     </div>
@@ -795,7 +795,7 @@ function Chips({ label, options, value, onChange }: { label: string; options: re
       <span className="text-xs font-medium text-muted-foreground">{label}</span>
       <div className="flex flex-wrap gap-2">
         {options.map(([v, l]) => (
-          <button key={v} onClick={() => onChange(v)} className={`rounded-full px-4 py-2 text-sm font-bold ${value === v ? "bg-accent text-accent-foreground" : "bg-secondary"}`}>{l}</button>
+          <button key={v} onClick={() => onChange(v)} className={`tap-target control-transition rounded-full px-4 py-2 text-sm font-semibold ${value === v ? "bg-accent text-accent-foreground" : "border border-border bg-secondary"}`}>{l}</button>
         ))}
       </div>
     </div>
@@ -813,8 +813,8 @@ function download(r: Recording) {
 }
 function Takes({ takes, refresh, onOpen }: { takes: Recording[]; refresh: () => void; onOpen: (r: Recording) => void }) {
   return (
-    <div className="h-full overflow-y-auto p-4 pt-[calc(env(safe-area-inset-top)+1rem)]">
-      <h1 className="text-2xl font-extrabold">My Recordings</h1>
+    <div className="app-page">
+      <h1 className="app-page-title">My Recordings</h1>
       <p className="mb-4 text-sm font-medium text-muted-foreground">Saved on this phone only.</p>
       {takes.length === 0 ? (
         <div className="rounded-3xl bg-card p-8 text-center text-sm text-muted-foreground">
@@ -823,8 +823,8 @@ function Takes({ takes, refresh, onOpen }: { takes: Recording[]; refresh: () => 
       ) : (
         <ul className="space-y-3">
           {takes.map((t) => (
-            <li key={t.id} className="flex items-center gap-3 rounded-3xl bg-card p-3">
-              <button onClick={() => onOpen(t)} className="relative h-20 w-14 shrink-0 overflow-hidden rounded-xl bg-muted" aria-label={`Play ${t.title}`}>
+            <li key={t.id} className="app-panel flex items-center gap-3 p-3">
+              <button onClick={() => onOpen(t)} className="relative h-20 w-14 shrink-0 overflow-hidden rounded-xl bg-muted ring-1 ring-border" aria-label={`Play ${t.title}`}>
                 {t.thumbnail && <img src={t.thumbnail} alt="" className="h-full w-full object-cover" />}
                 <Play className="absolute inset-0 m-auto h-5 w-5" />
               </button>
@@ -832,12 +832,12 @@ function Takes({ takes, refresh, onOpen }: { takes: Recording[]; refresh: () => 
                 <p className="truncate font-bold">{t.title}</p>
                 <p className="text-xs font-medium text-muted-foreground">{new Date(t.createdAt).toLocaleString()} · {fmtTime(t.duration)} · {extFor(t.format).toUpperCase()}</p>
               </div>
-              <button aria-label="Download" onClick={() => download(t)} className="rounded-full bg-secondary p-2.5"><Download className="h-4 w-4" /></button>
+              <button aria-label="Download" onClick={() => download(t)} className="tap-target control-transition flex items-center justify-center rounded-xl border border-border bg-secondary"><Download className="h-4 w-4" /></button>
               <button aria-label="Delete" onClick={async () => {
                 if (!confirm("Delete this take?")) return;
                 try { await deleteRecording(t.id); await refresh(); }
                 catch { toast("This take could not be deleted. Try again after reloading."); }
-              }} className="rounded-full bg-secondary p-2.5 text-primary"><Trash2 className="h-4 w-4" /></button>
+              }} className="tap-target control-transition flex items-center justify-center rounded-xl border border-border bg-secondary text-primary"><Trash2 className="h-4 w-4" /></button>
             </li>
           ))}
         </ul>
@@ -850,10 +850,10 @@ function Takes({ takes, refresh, onOpen }: { takes: Recording[]; refresh: () => 
 function Sheet({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-40 flex items-end bg-scrim backdrop-blur-sm" onClick={onClose}>
-      <div className="max-h-[92vh] w-full overflow-y-auto rounded-t-[2rem] bg-card p-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)]" onClick={(e) => e.stopPropagation()}>
+      <div className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[1.5rem] border-t border-border bg-card p-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-extrabold">{title}</h2>
-          <button aria-label="Close" onClick={onClose} className="rounded-full bg-secondary p-2"><X className="h-4 w-4" /></button>
+          <button aria-label="Close" onClick={onClose} className="tap-target control-transition flex items-center justify-center rounded-xl border border-border bg-secondary"><X className="h-4 w-4" /></button>
         </div>
         {children}
       </div>
@@ -876,13 +876,13 @@ function Review({ rec, onClose, onSaved }: { rec: Recording; onClose: () => void
         <Check className="h-4 w-4 text-accent" /> {fmtTime(rec.duration)} · {extFor(rec.format).toUpperCase()} · {(rec.blob.size / 1e6).toFixed(1)} MB
       </p>
       <video src={url} controls playsInline autoPlay className="mx-auto max-h-[52vh] w-full rounded-2xl bg-background" />
-      <div className="mt-4 grid grid-cols-3 gap-2">
+      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
         <Action onClick={() => download(rec)} icon={<Download className="h-4 w-4" />}>Download</Action>
         <Action onClick={share} icon={<Share2 className="h-4 w-4" />}>Share</Action>
         {rec.saved ? (
           <Action onClick={onClose} disabled icon={<Check className="h-4 w-4" />}>Saved</Action>
         ) : (
-          <button onClick={() => onSaved(rec)} className="rounded-full bg-primary py-3 text-sm font-bold text-primary-foreground">Save</button>
+          <button onClick={() => onSaved(rec)} className="app-primary w-full rounded-xl">Save</button>
         )}
       </div>
     </Sheet>
@@ -902,7 +902,7 @@ function AudioHelp({ onClose }: { onClose: () => void }) {
     <Sheet title="Cleaner phone audio" onClose={onClose}>
       <ul className="space-y-3">
         {tips.map(([t, b]) => (
-          <li key={t} className="rounded-2xl bg-secondary p-4">
+          <li key={t} className="app-panel rounded-2xl p-4">
             <p className="font-bold">{t}</p>
             <p className="text-sm text-muted-foreground">{b}</p>
           </li>

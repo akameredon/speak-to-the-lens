@@ -22,6 +22,25 @@ afterEach(() => {
 });
 
 describe("main navigation", () => {
+  it("keeps a clear accessible active state across the four product screens", () => {
+    render(<Teleprompter />);
+    const film = screen.getByRole("button", { name: "Film" });
+    expect(film).toHaveAttribute("aria-current", "page");
+
+    fireEvent.click(screen.getByRole("button", { name: "Script" }));
+    expect(screen.getByRole("heading", { name: "Script" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Script" })).toHaveAttribute("aria-current", "page");
+    expect(document.querySelector(".app-page")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Write" }));
+    expect(screen.getByRole("heading", { name: "AI Script Writer" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Write" })).toHaveAttribute("aria-current", "page");
+
+    fireEvent.click(screen.getByRole("button", { name: "Takes" }));
+    expect(screen.getByRole("heading", { name: "My Recordings" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Takes" })).toHaveAttribute("aria-current", "page");
+  });
+
   it("pauses the teleprompter when leaving Film and does not resume in the background", () => {
     render(<Teleprompter />);
 
