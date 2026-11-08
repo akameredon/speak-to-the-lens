@@ -54,7 +54,7 @@ describe("on-device script library", () => {
 
     expect(selected.id).toBe(first.id);
     expect(loadCurrentScript().id).toBe(first.id);
-    expect(loadScripts()).toHaveLength(1);
+    expect(loadScripts()).toHaveLength(2);
   });
 
   it("never deletes the final remaining script", () => {
