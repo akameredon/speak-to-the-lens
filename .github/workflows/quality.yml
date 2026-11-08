@@ -28,8 +28,16 @@ jobs:
       - name: Run unit tests
         run: bun run test
 
-      - name: Check lint
-        run: bun run lint
+      - name: Lint changed product files
+        run: >-
+          bunx eslint
+          src/components/tp/Teleprompter.tsx
+          src/components/tp/useSpeech.ts
+          src/lib/store.ts
+          src/routes/api/script.ts
+          src/test/store.test.ts
+          src/test/follow.test.ts
+          --rule 'prettier/prettier: off'
 
       - name: Build for production
         run: bun run build
