@@ -93,3 +93,31 @@ export function currentDeliverySegment(map: DeliveryMap | null, position: number
   if (!map) return null;
   return map.segments.find((segment) => position >= segment.startWord && position < segment.endWord) ?? null;
 }
+
+/** Return the next pre-planned speaking-group boundary. */
+export function nextDeliveryPosition(map: DeliveryMap | null, words: string[], position: number): number {
+  if (map) {
+    const current = currentDeliverySegment(map, position);
+    if (current) return current.endWord;
+    const next = map.segments.find((segment) => segment.startWord > position);
+    if (next) return next.endWord;
+  }
+  for (let i = Math.max(0, position); i < words.length; i++) {
+    if (/[.!?][”’"')\]]*$/.test(words[i])) return i + 1;
+  }
+  return Math.min(words.length, position + 1);
+}
+
+/** Return the start of the previous planned group, or previous sentence. */
+export function previousDeliveryPosition(map: DeliveryMap | null, words: string[], position: number): number {
+  if (map) {
+    const previous = [...map.segments].reverse().find((segment) => segment.endWord <= position);
+    if (previous) return previous.startWord;
+    const current = currentDeliverySegment(map, position);
+    if (current && current.startWord < position) return current.startWord;
+  }
+  for (let i = Math.min(words.length - 1, position - 2); i >= 0; i--) {
+    if (/[.!?][”’"')\]]*$/.test(words[i])) return i + 1;
+  }
+  return 0;
+}
