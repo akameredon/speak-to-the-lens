@@ -46,7 +46,17 @@ const MODE_MIGRATION_KEY = "tp.mode-migration.v1";
 
 export function loadProfile(): Profile {
   try {
-    const profile = { ...DEFAULT_PROFILE, ...JSON.parse(localStorage.getItem(PK) || "{}") } as Profile;
+    const stored = JSON.parse(localStorage.getItem(PK) || "{}") as Partial<Profile>;
+    const profile: Profile = {
+      ...DEFAULT_PROFILE,
+      ...stored,
+      camera: stored.camera === "environment" ? "environment" : "user",
+      fontSize: Number.isFinite(stored.fontSize) ? Math.min(56, Math.max(22, Number(stored.fontSize))) : DEFAULT_PROFILE.fontSize,
+      speed: Number.isFinite(stored.speed) ? Math.min(10, Math.max(1, Number(stored.speed))) : DEFAULT_PROFILE.speed,
+      mirror: typeof stored.mirror === "boolean" ? stored.mirror : DEFAULT_PROFILE.mirror,
+      mode: stored.mode === "voice" || stored.mode === "auto" || stored.mode === "manual" ? stored.mode : DEFAULT_PROFILE.mode,
+      displayName: typeof stored.displayName === "string" ? stored.displayName.slice(0, 80) : DEFAULT_PROFILE.displayName,
+    };
     if (localStorage.getItem(MODE_MIGRATION_KEY) !== "1") {
       profile.mode = "manual";
       localStorage.setItem(MODE_MIGRATION_KEY, "1");
@@ -56,7 +66,9 @@ export function loadProfile(): Profile {
     return DEFAULT_PROFILE;
   }
 }
-export const saveProfile = (p: Profile) => localStorage.setItem(PK, JSON.stringify(p));
+export function saveProfile(p: Profile) {
+  try { localStorage.setItem(PK, JSON.stringify(p)); } catch { /* A full or disabled local store must not crash the app. */ }
+}
 
 export function loadScript(): Script {
   try {
@@ -145,7 +157,17 @@ export async function listRecordings(): Promise<Recording[]> {
   const all = await Promise.all(ks.map((k) => get<Recording>(k)));
   return (all.filter(Boolean) as Recording[]).sort((a, b) => b.createdAt - a.createdAt);
 }
-export const putRecording = (r: Recording) => set(RK + r.id, r);
+export async function putRecording(r: Recording): Promise<void> {
+  if (!r.id || !(r.blob instanceof Blob) || r.blob.size === 0) {
+    throw new Error("A recording must have a valid ID and non-empty video data.");
+  }
+  const key = RK + r.id;
+  await set(key, r);
+  const saved = await get<Recording>(key);
+  if (!saved || !(saved.blob instanceof Blob) || saved.blob.size !== r.blob.size) {
+    throw new Error("The recording could not be verified after saving.");
+  }
+}
 export const deleteRecording = (id: string) => del(RK + id);
 
 export function pickMime(): string {
