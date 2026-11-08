@@ -113,7 +113,7 @@ export const Route = createFileRoute("/api/script")({
                 }
               }
             } catch {
-              controller.enqueue(encoder.encode("\\n[[ERROR]]Gemini interrupted the response. Please try again."));
+              controller.enqueue(encoder.encode("\n[[ERROR]]Gemini interrupted the response. Please try again.");
               controller.close();
             } finally {
               reader.releaseLock();
