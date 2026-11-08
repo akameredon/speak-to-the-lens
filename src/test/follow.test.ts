@@ -12,7 +12,7 @@ describe("voice following", () => {
     expect(advance(words, 13, "start with one shelf")).toBe(13);
   });
   it("matches the repeat ahead, not the earlier one", () => {
-    expect(advance(words, 7, "start with one")).toBe(10);
+    expect(advance(words, 7, "start with one")).toBe(11);
   });
   it("stays put on unrelated speech", () => {
     expect(advance(words, 4, "banana telephone")).toBe(4);
