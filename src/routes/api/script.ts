@@ -31,7 +31,11 @@ export const Route = createFileRoute("/api/script")({
         const rate = checkAiRateLimit(request, "script", 8);
         if (!rate.allowed) return aiRateLimitResponse(rate.retryAfterSeconds);
         if (aiRequestTooLarge(request, 12_000)) return new Response("This request is too large.", { status: 413 });
-        const parsed = Body.safeParse(await request.json().catch(() => null));
+        const rawBody = await request.text().catch(() => "");
+        if (new TextEncoder().encode(rawBody).byteLength > 12_000) return new Response("This request is too large.", { status: 413 });
+        let input: unknown;
+        try { input = JSON.parse(rawBody); } catch { return new Response("Invalid request", { status: 400 }); }
+        const parsed = Body.safeParse(input);
         if (!parsed.success) return new Response("Invalid request", { status: 400 });
 
         const apiKey = process.env.GROQ_API_KEY;
