@@ -13,8 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "build:cloudflare": "bun run build",
-    "preview:cloudflare": "bun run build && bunx wrangler --cwd .output/server dev",
-    "deploy:cloudflare": "bunx wrangler --cwd .output/server deploy",
+    "preview:cloudflare": "bun run build:cloudflare && bunx wrangler dev",
+    "deploy:cloudflare": "bunx wrangler deploy",
     "deploy:cloudflare:local": "bun run build:cloudflare && bun run deploy:cloudflare"
   },
   "overrides": {
