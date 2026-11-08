@@ -12,7 +12,7 @@ import {
 import { speechSupported, useSpeech } from "./useSpeech";
 import { streamScript } from "./ai";
 import {
-  currentDeliverySegment, DELIVERY_STYLES, DELIVERY_STYLE_LABELS,
+  currentDeliverySegment, nextDeliveryPosition, previousDeliveryPosition, DELIVERY_STYLES, DELIVERY_STYLE_LABELS,
   type DeliveryMap, type DeliveryStyle,
 } from "@/lib/delivery";
 
@@ -126,8 +126,8 @@ export default function Teleprompter() {
   }, [running, activeMode, profile.speed, words.length, pos, deliveryMap]);
 
   const startReading = useCallback(() => {
-    const mode = profile.mode === "voice" && speechSupported() ? "voice" : "auto";
-    if (profile.mode === "voice" && mode === "auto") toast("Voice following isn't supported here — using auto scroll.");
+    const mode = profile.mode === "voice" && !speechSupported() ? "manual" : profile.mode;
+    if (profile.mode === "voice" && mode === "manual") toast("Voice following isn't supported here — using tap to advance.");
     setActiveMode(mode);
     if (mode === "voice") speech.start();
     setRunning(true);
@@ -262,18 +262,24 @@ export default function Teleprompter() {
             elapsed={elapsed}
             upd={upd}
             onToggleRead={() => (running ? stopReading() : (pos >= words.length && setPos(0), startReading()))}
+            onAdvance={() => setPos((current) => nextDeliveryPosition(deliveryMap, words, current))}
+            onPrevious={() => setPos((current) => previousDeliveryPosition(deliveryMap, words, current))}
             onRecord={() => (recording ? stopRecording() : startRecording())}
             onEdit={() => setTab("script")}
             onHelp={() => setHelp(true)}
             onSwitchMode={() => {
-              const next = activeMode === "voice" ? "auto" : "voice";
+              const next = activeMode === "manual" ? "voice" : activeMode === "voice" ? "auto" : "manual";
+              if (next === "voice" && !speechSupported()) {
+                speech.stop();
+                setActiveMode("manual");
+                upd({ mode: "manual" });
+                toast("Voice following isn't supported here — tap to advance is ready.");
+                return;
+              }
               upd({ mode: next });
-              if (running) {
-                if (next === "voice") {
-                  if (speechSupported()) { setActiveMode("voice"); speech.start(); }
-                  else { setActiveMode("auto"); toast("Voice following isn't supported here."); }
-                } else { speech.stop(); setActiveMode("auto"); }
-              } else setActiveMode(next);
+              if (next === "voice") speech.start();
+              else speech.stop();
+              setActiveMode(next);
             }}
           />
         )}
@@ -351,6 +357,8 @@ function FilmSurface(p: {
   elapsed: number;
   upd: (x: Partial<Profile>) => void;
   onToggleRead: () => void;
+  onAdvance: () => void;
+  onPrevious: () => void;
   onRecord: () => void;
   onEdit: () => void;
   onHelp: () => void;
@@ -384,8 +392,8 @@ function FilmSurface(p: {
       <div className="absolute inset-x-0 top-0 bg-panel pt-[env(safe-area-inset-top)] backdrop-blur-md">
         <div className="flex items-center justify-between px-4 pt-3 text-xs font-medium text-muted-foreground">
           <button onClick={p.onSwitchMode} className="flex items-center gap-1.5 rounded-full bg-scrim px-3 py-1.5">
-            {p.activeMode === "voice" ? <Mic className="h-3.5 w-3.5 text-accent" /> : <Timer className="h-3.5 w-3.5 text-accent" />}
-            {p.activeMode === "voice" ? (p.listening ? "Voice · listening" : "Voice") : "Auto scroll"}
+            {p.activeMode === "voice" ? <Mic className="h-3.5 w-3.5 text-accent" /> : p.activeMode === "auto" ? <Timer className="h-3.5 w-3.5 text-accent" /> : <Play className="h-3.5 w-3.5 text-accent" />}
+            {p.activeMode === "voice" ? (p.listening ? "Voice follow · listening" : "Voice follow") : p.activeMode === "auto" ? "Auto pace" : "Tap to advance"}
           </button>
           {p.recording ? (
             <span className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 font-bold text-primary-foreground">
@@ -447,7 +455,14 @@ function FilmSurface(p: {
 
       {/* thumb controls */}
       <div className="absolute inset-x-0 bottom-0 space-y-3 bg-gradient-to-t from-background/90 to-transparent px-4 pb-4 pt-10">
-        <div className="flex items-center gap-3 rounded-3xl bg-scrim p-3 backdrop-blur-md">
+        {p.activeMode === "manual" && p.deliveryMap && (
+          <div className="flex justify-center">
+            <button onClick={p.onAdvance} disabled={p.pos >= p.words.length} className="rounded-full border border-white/15 bg-background/75 px-6 py-2.5 text-sm font-bold shadow-lg backdrop-blur-xl disabled:opacity-40">
+              Done · Next phrase <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        )}
+        <div className="flex items-center gap-3 rounded-3xl border border-white/10 bg-scrim/80 p-3 shadow-lg backdrop-blur-xl">
           <Control label="Size" value={`${p.profile.fontSize}px`}>
             <input type="range" min={22} max={56} value={p.profile.fontSize} onChange={(e) => p.upd({ fontSize: +e.target.value })} className="w-full accent-[var(--accent)]" aria-label="Font size" />
           </Control>
@@ -455,8 +470,8 @@ function FilmSurface(p: {
             <input type="range" min={1} max={10} value={p.profile.speed} onChange={(e) => p.upd({ speed: +e.target.value })} className="w-full accent-[var(--accent)]" aria-label="Scroll speed" />
           </Control>
           <div className="flex flex-col gap-1">
-            <button aria-label="Back a line" onClick={() => p.setPos((x) => Math.max(0, x - 6))} className="rounded-full bg-secondary p-1.5"><ArrowUp className="h-4 w-4" /></button>
-            <button aria-label="Forward a line" onClick={() => p.setPos((x) => Math.min(p.words.length, x + 6))} className="rounded-full bg-secondary p-1.5"><ArrowDown className="h-4 w-4" /></button>
+            <button aria-label="Previous phrase" onClick={p.onPrevious} className="rounded-full bg-secondary p-1.5"><ArrowUp className="h-4 w-4" /></button>
+            <button aria-label="Next phrase" onClick={p.onAdvance} className="rounded-full bg-secondary p-1.5"><ArrowDown className="h-4 w-4" /></button>
           </div>
         </div>
         <div className="flex items-center justify-between">
