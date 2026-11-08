@@ -59,4 +59,4 @@ jobs:
           NODE
 
       - name: Validate Wrangler deployment bundle without publishing
-        run: bunx wrangler --cwd .output/server deploy --dry-run
+        run: bunx wrangler deploy --dry-run
