@@ -20,7 +20,11 @@ export const Route = createFileRoute("/api/delivery")({
         const rate = checkAiRateLimit(request, "delivery", 4);
         if (!rate.allowed) return aiRateLimitResponse(rate.retryAfterSeconds);
         if (aiRequestTooLarge(request, 12_000)) return Response.json({ error: "This script is too large to analyse in one request." }, { status: 413 });
-        const parsed = Body.safeParse(await request.json().catch(() => null));
+        const rawBody = await request.text().catch(() => "");
+        if (new TextEncoder().encode(rawBody).byteLength > 12_000) return Response.json({ error: "This script is too large to analyse in one request." }, { status: 413 });
+        let input: unknown;
+        try { input = JSON.parse(rawBody); } catch { return Response.json({ error: "Invalid delivery-coaching request." }, { status: 400 }); }
+        const parsed = Body.safeParse(input);
         if (!parsed.success) return Response.json({ error: "Invalid delivery-coaching request." }, { status: 400 });
 
         const apiKey = process.env.GROQ_API_KEY;
