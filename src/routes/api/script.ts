@@ -20,6 +20,11 @@ const MODEL = "gemini-3.8-flash";
 export const Route = createFileRoute("/api/script")({
   server: {
     handlers: {
+      GET: async () =>
+        Response.json(
+          { ok: true, provider: "Gemini", model: MODEL, apiKeyConfigured: Boolean(process.env.GEMINI_API_KEY) },
+          { headers: { "Cache-Control": "no-store" } },
+        ),
       POST: async ({ request }) => {
         const parsed = Body.safeParse(await request.json().catch(() => null));
         if (!parsed.success) return new Response("Invalid request", { status: 400 });
