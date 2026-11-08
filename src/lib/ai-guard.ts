@@ -1,0 +1,62 @@
+type Bucket = { count: number; resetAt: number };
+
+const buckets = new Map<string, Bucket>();
+
+export type RateLimitResult = {
+  allowed: boolean;
+  retryAfterSeconds: number;
+};
+
+/**
+ * Best-effort per-instance protection. Production requests are also protected
+ * by Vercel's distributed firewall rate-limit rules.
+ */
+export function checkAiRateLimit(
+  request: Request,
+  endpoint: "script" | "delivery",
+  limit: number,
+  windowMs = 60_000,
+  now = Date.now(),
+): RateLimitResult {
+  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const address = request.headers.get("x-real-ip")?.trim() || forwarded || "unknown";
+  const key = `${endpoint}:${address}`;
+  const current = buckets.get(key);
+
+  if (!current || current.resetAt <= now) {
+    if (buckets.size > 5_000) {
+      for (const [candidate, value] of buckets) {
+        if (value.resetAt <= now) buckets.delete(candidate);
+      }
+      if (buckets.size > 5_000) buckets.clear();
+    }
+    buckets.set(key, { count: 1, resetAt: now + windowMs });
+    return { allowed: true, retryAfterSeconds: 0 };
+  }
+
+  if (current.count >= limit) {
+    return {
+      allowed: false,
+      retryAfterSeconds: Math.max(1, Math.ceil((current.resetAt - now) / 1000)),
+    };
+  }
+
+  current.count += 1;
+  return { allowed: true, retryAfterSeconds: 0 };
+}
+
+export function aiRateLimitResponse(retryAfterSeconds: number) {
+  return Response.json(
+    { error: "Too many AI requests. Please wait a moment and try again." },
+    { status: 429, headers: { "Cache-Control": "no-store", "Retry-After": String(retryAfterSeconds) } },
+  );
+}
+
+export function aiRequestTooLarge(request: Request, maxBytes: number) {
+  const length = Number(request.headers.get("content-length") || 0);
+  return Number.isFinite(length) && length > maxBytes;
+}
+
+export function aiRequestSignal(request: Request, timeoutMs = 45_000): AbortSignal {
+  return AbortSignal.any([request.signal, AbortSignal.timeout(timeoutMs)]);
+}
