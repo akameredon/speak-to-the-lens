@@ -393,6 +393,7 @@ export function FilmSurface(p: {
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const curRef = useRef<HTMLSpanElement>(null);
+  const { pos, fontSize } = { pos: p.pos, fontSize: p.profile.fontSize };
   const activeDelivery = currentDeliverySegment(p.deliveryMap, p.pos);
   const activeIndex = p.deliveryMap?.segments.findIndex((segment) => segment === activeDelivery) ?? -1;
   const upcomingDelivery = activeIndex >= 0 ? p.deliveryMap?.segments[activeIndex + 1] : undefined;
@@ -421,7 +422,7 @@ export function FilmSurface(p: {
     const top = Math.max(0, phraseTop - box.clientHeight * 0.3);
     if (typeof box.scrollTo === "function") box.scrollTo({ top, behavior: "smooth" });
     else box.scrollTop = top;
-  }, [p.pos, p.profile.fontSize]);
+  }, [pos, fontSize]);
 
   return (
     <div className="absolute inset-0">
