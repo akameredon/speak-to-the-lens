@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { DELIVERY_STYLES, validateDeliverySegments, type DeliveryMap } from "@/lib/delivery";
-import { aiRateLimitResponse, aiRequestSignal, aiRequestTooLarge, checkAiRateLimit } from "@/lib/ai-guard";
+import { aiRateLimitResponse, aiRequestSignal, aiRequestTooLarge, checkAiRateLimit, isSameOriginAiRequest } from "@/lib/ai-guard";
 
 const Body = z.object({
   script: z.string().trim().min(1).max(8000),
@@ -19,6 +19,7 @@ export const Route = createFileRoute("/api/delivery")({
       POST: async ({ request }) => {
         const rate = checkAiRateLimit(request, "delivery", 4);
         if (!rate.allowed) return aiRateLimitResponse(rate.retryAfterSeconds);
+        if (!isSameOriginAiRequest(request)) return new Response("This AI endpoint only accepts requests from the app.", { status: 403 });
         if (aiRequestTooLarge(request, 12_000)) return Response.json({ error: "This script is too large to analyse in one request." }, { status: 413 });
         const rawBody = await request.text().catch(() => "");
         if (new TextEncoder().encode(rawBody).byteLength > 12_000) return Response.json({ error: "This script is too large to analyse in one request." }, { status: 413 });
