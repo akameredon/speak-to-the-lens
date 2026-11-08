@@ -22,7 +22,9 @@ function observe(type: string, callback: (entry: PerformanceEntry) => void) {
     const observer = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) callback(entry);
     });
-    observer.observe({ type, buffered: true });
+    observer.observe(type === "event"
+      ? { type, buffered: true, durationThreshold: 16 }
+      : { type, buffered: true });
   } catch {
     // Older browsers may not support a particular performance entry type.
   }
