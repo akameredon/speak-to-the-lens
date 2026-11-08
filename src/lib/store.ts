@@ -128,7 +128,7 @@ export function deleteScript(id: string): Script {
   const scripts = loadScripts();
   if (scripts.length <= 1) return scripts[0] ?? loadScript();
   const remaining = scripts.filter((item) => item.id !== id);
-  const current = remaining.find((item) => item.current) ?? remaining[0];
+  const current = remaining.find((item) => item.current) ?? remaining[remaining.length - 1];
   persistScripts(remaining.map((item) => ({ ...item, current: item.id === current.id })));
   return { ...current, current: true };
 }
