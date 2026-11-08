@@ -11,6 +11,10 @@ import {
 } from "@/lib/store";
 import { speechSupported, useSpeech } from "./useSpeech";
 import { streamScript } from "./ai";
+import {
+  currentDeliverySegment, DELIVERY_STYLES, DELIVERY_STYLE_LABELS,
+  type DeliveryMap, type DeliveryStyle,
+} from "@/lib/delivery";
 
 type Tab = "film" | "script" | "write" | "takes";
 type Notice = { title: string; body: string; action?: { label: string; run: () => void } } | null;
@@ -30,6 +34,7 @@ export default function Teleprompter() {
   const [help, setHelp] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
   const [camReady, setCamReady] = useState(false);
+  const [deliveryMap, setDeliveryMap] = useState<DeliveryMap | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -238,6 +243,7 @@ export default function Teleprompter() {
             camReady={camReady}
             profile={profile}
             words={words}
+            deliveryMap={deliveryMap}
             pos={pos}
             setPos={setPos}
             running={running}
@@ -266,7 +272,9 @@ export default function Teleprompter() {
           <ScriptEditor
             script={script}
             scripts={scripts}
-            setScript={(s) => { setScript(s); setPos(0); }}
+            deliveryMap={deliveryMap}
+            onDeliveryMap={setDeliveryMap}
+            setScript={(s) => { setScript(s); setPos(0); setDeliveryMap(null); }}
             onSelectScript={chooseScript}
             onNewScript={addScript}
             onDeleteScript={removeScript}
@@ -275,7 +283,7 @@ export default function Teleprompter() {
         )}
         {tab === "write" && (
           <Writer
-            onStream={(t) => { setScript((s) => ({ ...s, body: t })); }}
+            onStream={(t) => { setScript((s) => ({ ...s, body: t })); setDeliveryMap(null); }}
             onStart={(topic) => { setScript((s) => ({ ...s, title: topic.slice(0, 48) || s.title, body: "" })); setTab("script"); setPos(0); }}
           />
         )}
@@ -324,6 +332,7 @@ function FilmSurface(p: {
   camReady: boolean;
   profile: Profile;
   words: string[];
+  deliveryMap: DeliveryMap | null;
   pos: number;
   setPos: (n: number | ((x: number) => number)) => void;
   running: boolean;
@@ -340,6 +349,7 @@ function FilmSurface(p: {
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const curRef = useRef<HTMLSpanElement>(null);
+  const activeDelivery = currentDeliverySegment(p.deliveryMap, p.pos);
   useEffect(() => {
     const box = boxRef.current, el = curRef.current;
     if (!box || !el) return;
@@ -378,13 +388,39 @@ function FilmSurface(p: {
             </button>
           )}
         </div>
+        {activeDelivery && (
+          <div className="flex flex-wrap items-center gap-2 px-4 pb-2 text-[11px] font-semibold">
+            <span className="rounded-full bg-accent px-2 py-1 text-accent-foreground">{activeDelivery.pace}</span>
+            <span className="rounded-full bg-scrim px-2 py-1">{activeDelivery.emotion}</span>
+            <span className="text-muted-foreground">{activeDelivery.cue}</span>
+            {activeDelivery.pauseAfterMs > 0 && <span className="text-muted-foreground">Pause {activeDelivery.pauseAfterMs} ms after phrase</span>}
+          </div>
+        )}
         <div
           ref={boxRef}
           className="relative h-[34vh] overflow-y-auto px-5 pb-6 pt-2 [scrollbar-width:none]"
           style={{ transform: p.profile.mirror ? "scaleX(-1)" : undefined }}
         >
           <p className="font-extrabold leading-[1.25] tracking-tight" style={{ fontSize: p.profile.fontSize }}>
-            {p.words.map((w, i) => (
+            {p.deliveryMap ? p.deliveryMap.segments.map((segment, segmentIndex) => {
+              const active = p.pos >= segment.startWord && p.pos < segment.endWord;
+              const passed = p.pos >= segment.endWord;
+              return (
+                <span
+                  key={segmentIndex}
+                  ref={active ? curRef : undefined}
+                  onClick={() => p.setPos(segment.startWord)}
+                  className={`script-word ${active ? "word-current" : passed ? "word-read" : ""}`}
+                  title={segment.cue}
+                >
+                  {p.words.slice(segment.startWord, segment.endWord).map((word, offset) => (
+                    <span key={segment.startWord + offset} className={segment.emphasis.includes(segment.startWord + offset) ? "font-black underline decoration-2 underline-offset-4" : ""}>
+                      {word}{" "}
+                    </span>
+                  ))}
+                </span>
+              );
+            }) : p.words.map((w, i) => (
               <span
                 key={i}
                 ref={i === Math.min(p.pos, p.words.length - 1) ? curRef : undefined}
@@ -455,10 +491,12 @@ function Round({ children, label, onClick, active, disabled }: { children: React
 
 /* ---------------- Script ---------------- */
 function ScriptEditor({
-  script, scripts, setScript, onSelectScript, onNewScript, onDeleteScript, onWrite,
+  script, scripts, deliveryMap, onDeliveryMap, setScript, onSelectScript, onNewScript, onDeleteScript, onWrite,
 }: {
   script: Script;
   scripts: Script[];
+  deliveryMap: DeliveryMap | null;
+  onDeliveryMap: (map: DeliveryMap | null) => void;
   setScript: (s: Script) => void;
   onSelectScript: (id: string) => void;
   onNewScript: () => void;
@@ -466,7 +504,34 @@ function ScriptEditor({
   onWrite: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [coaching, setCoaching] = useState(false);
+  const [style, setStyle] = useState<DeliveryStyle>("social-camera");
+  const [audience, setAudience] = useState("General audience");
+  const [setting, setSetting] = useState("Camera / phone video");
+  const [experience, setExperience] = useState<"beginner" | "comfortable" | "experienced">("beginner");
   const words = tokenize(script.body).length;
+  const coachDelivery = async () => {
+    if (!script.body.trim()) return toast("Add your script before mapping its delivery.");
+    setCoaching(true);
+    try {
+      const response = await fetch("/api/delivery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        credentials: "same-origin",
+        body: JSON.stringify({ script: script.body, style, audience, setting, experience }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(result?.error || `Delivery analysis failed (HTTP ${response.status}).`);
+      if (!result?.segments || result.segments.length === 0) throw new Error("The AI returned an empty delivery map.");
+      onDeliveryMap(result as DeliveryMap);
+      toast("Speak Intelligence mapped your full script.");
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "Couldn't map this script. Please try again.");
+    } finally {
+      setCoaching(false);
+    }
+  };
   const paste = async () => {
     try {
       const t = await navigator.clipboard.readText();
@@ -508,6 +573,45 @@ function ScriptEditor({
         className="rounded-2xl bg-card px-4 py-3 text-lg font-bold outline-none focus:ring-2 focus:ring-ring" />
       <textarea value={script.body} onChange={(e) => setScript({ ...script, body: e.target.value })} aria-label="Script text" placeholder="Type or paste your script…"
         className="min-h-[45vh] flex-1 resize-none rounded-2xl bg-card p-4 text-lg font-semibold leading-relaxed outline-none focus:ring-2 focus:ring-ring" />
+      <section className="space-y-3 rounded-2xl border border-border bg-card p-3">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <h2 className="font-extrabold">Speak Intelligence</h2>
+            <p className="text-xs text-muted-foreground">Map natural phrase groups and delivery cues across the whole script.</p>
+          </div>
+          <Sparkles className="h-5 w-5 text-primary" />
+        </div>
+        <label className="block space-y-1">
+          <span className="text-xs font-semibold text-muted-foreground">Speech type</span>
+          <select value={style} onChange={(e) => { setStyle(e.target.value as DeliveryStyle); onDeliveryMap(null); }} className="w-full rounded-xl bg-background px-3 py-2 text-sm">
+            {DELIVERY_STYLES.map((item) => <option key={item} value={item}>{DELIVERY_STYLE_LABELS[item]}</option>)}
+          </select>
+        </label>
+        <label className="block space-y-1">
+          <span className="text-xs font-semibold text-muted-foreground">Audience</span>
+          <input value={audience} onChange={(e) => { setAudience(e.target.value); onDeliveryMap(null); }} maxLength={100} className="w-full rounded-xl bg-background px-3 py-2 text-sm" placeholder="e.g. First-time viewers" />
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="space-y-1">
+            <span className="text-xs font-semibold text-muted-foreground">Setting</span>
+            <select value={setting} onChange={(e) => { setSetting(e.target.value); onDeliveryMap(null); }} className="w-full rounded-xl bg-background px-2 py-2 text-xs">
+              {["Camera / phone video", "Small room", "Classroom", "Church / auditorium", "Large stage", "Interview"].map((item) => <option key={item}>{item}</option>)}
+            </select>
+          </label>
+          <label className="space-y-1">
+            <span className="text-xs font-semibold text-muted-foreground">Experience</span>
+            <select value={experience} onChange={(e) => { setExperience(e.target.value as typeof experience); onDeliveryMap(null); }} className="w-full rounded-xl bg-background px-2 py-2 text-xs">
+              <option value="beginner">Beginner</option>
+              <option value="comfortable">Comfortable</option>
+              <option value="experienced">Experienced</option>
+            </select>
+          </label>
+        </div>
+        <button onClick={coachDelivery} disabled={coaching || !script.body.trim()} className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3 font-extrabold text-primary-foreground disabled:opacity-50">
+          <Sparkles className="h-4 w-4" /> {coaching ? "Analysing full script…" : deliveryMap ? "Re-map delivery" : "Map my delivery"}
+        </button>
+        {deliveryMap && <p className="text-xs font-semibold text-emerald-600">Delivery map ready · {deliveryMap.segments.length} speaking groups · word coverage verified</p>}
+      </section>
       <div className="grid grid-cols-3 gap-2">
         <Action onClick={paste} icon={<ClipboardPaste className="h-4 w-4" />}>Paste</Action>
         <Action onClick={onWrite} icon={<Sparkles className="h-4 w-4" />}>AI Writer</Action>
