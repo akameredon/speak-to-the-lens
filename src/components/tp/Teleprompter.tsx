@@ -111,13 +111,19 @@ export default function Teleprompter() {
     },
   );
 
-  // auto scroll timer
+  // Auto-scroll follows the delivery map's pace and honours rhetorical pauses.
   useEffect(() => {
-    if (!running || activeMode !== "auto") return;
+    if (!running || activeMode !== "auto" || pos >= words.length) return;
     const wpm = 70 + profile.speed * 16;
-    const id = setInterval(() => setPos((p) => Math.min(words.length, p + 1)), 60000 / wpm);
-    return () => clearInterval(id);
-  }, [running, activeMode, profile.speed, words.length]);
+    const segment = currentDeliverySegment(deliveryMap, pos);
+    const paceScale = segment?.pace === "slow" ? 1.45
+      : segment?.pace === "measured" ? 1.18
+        : segment?.pace === "brisk" ? 0.82 : 1;
+    const previousPause = deliveryMap?.segments.find((item) => item.endWord === pos)?.pauseAfterMs ?? 0;
+    const delay = Math.round((60000 / wpm) * paceScale + previousPause);
+    const id = window.setTimeout(() => setPos((current) => Math.min(words.length, current + 1)), delay);
+    return () => window.clearTimeout(id);
+  }, [running, activeMode, profile.speed, words.length, pos, deliveryMap]);
 
   const startReading = useCallback(() => {
     const mode = profile.mode === "voice" && speechSupported() ? "voice" : "auto";
