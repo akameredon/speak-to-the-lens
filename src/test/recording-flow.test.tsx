@@ -47,6 +47,14 @@ afterEach(() => {
 });
 
 describe("camera-to-recording workflow", () => {
+  it("starts recording after a single deliberate Record tap and camera permission", async () => {
+    render(<Teleprompter />);
+    fireEvent.click(screen.getByRole("button", { name: "Record" }));
+
+    await waitFor(() => expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(1));
+    expect(await screen.findByRole("button", { name: "Stop recording" })).toBeInTheDocument();
+  });
+
   it("captures a take, previews it, verifies local save, lists it and starts a download", async () => {
     render(<Teleprompter />);
     expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled();
