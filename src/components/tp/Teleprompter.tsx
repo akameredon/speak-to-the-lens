@@ -725,7 +725,7 @@ function ScriptEditor({
             </select>
           </label>
         </div>
-        <button onClick={coachDelivery} disabled={coaching || !script.body.trim()} className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3 font-extrabold text-primary-foreground disabled:opacity-50">
+        <button onClick={coachDelivery} disabled={coaching || !script.body.trim()} className="app-primary w-full">
           <Sparkles className="h-4 w-4" /> {coaching ? "Analysing full script…" : deliveryMap ? "Re-map delivery" : "Map my delivery"}
         </button>
         {deliveryMap && <p className="text-xs font-semibold text-emerald-600">Delivery map ready · {deliveryMap.segments.length} speaking groups · word coverage verified</p>}
@@ -740,7 +740,7 @@ function ScriptEditor({
 }
 function Action({ children, icon, onClick, disabled }: { children: React.ReactNode; icon: React.ReactNode; onClick: () => void; disabled?: boolean }) {
   return (
-    <button onClick={onClick} disabled={disabled} className="flex items-center justify-center gap-1.5 rounded-full bg-secondary py-3 text-sm font-bold disabled:opacity-50">
+    <button onClick={onClick} disabled={disabled} className="app-secondary tap-target flex-1 rounded-xl disabled:opacity-50">
       {icon}{children}
     </button>
   );
@@ -795,7 +795,7 @@ function Chips({ label, options, value, onChange }: { label: string; options: re
       <span className="text-xs font-medium text-muted-foreground">{label}</span>
       <div className="flex flex-wrap gap-2">
         {options.map(([v, l]) => (
-          <button key={v} onClick={() => onChange(v)} className={`rounded-full px-4 py-2 text-sm font-bold ${value === v ? "bg-accent text-accent-foreground" : "bg-secondary"}`}>{l}</button>
+          <button key={v} onClick={() => onChange(v)} className={`tap-target control-transition rounded-full px-4 py-2 text-sm font-semibold ${value === v ? "bg-accent text-accent-foreground" : "border border-border bg-secondary"}`}>{l}</button>
         ))}
       </div>
     </div>
@@ -850,10 +850,10 @@ function Takes({ takes, refresh, onOpen }: { takes: Recording[]; refresh: () => 
 function Sheet({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-40 flex items-end bg-scrim backdrop-blur-sm" onClick={onClose}>
-      <div className="max-h-[92vh] w-full overflow-y-auto rounded-t-[2rem] bg-card p-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)]" onClick={(e) => e.stopPropagation()}>
+      <div className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[1.5rem] border-t border-border bg-card p-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-extrabold">{title}</h2>
-          <button aria-label="Close" onClick={onClose} className="rounded-full bg-secondary p-2"><X className="h-4 w-4" /></button>
+          <button aria-label="Close" onClick={onClose} className="tap-target control-transition flex items-center justify-center rounded-xl border border-border bg-secondary"><X className="h-4 w-4" /></button>
         </div>
         {children}
       </div>
@@ -876,13 +876,13 @@ function Review({ rec, onClose, onSaved }: { rec: Recording; onClose: () => void
         <Check className="h-4 w-4 text-accent" /> {fmtTime(rec.duration)} · {extFor(rec.format).toUpperCase()} · {(rec.blob.size / 1e6).toFixed(1)} MB
       </p>
       <video src={url} controls playsInline autoPlay className="mx-auto max-h-[52vh] w-full rounded-2xl bg-background" />
-      <div className="mt-4 grid grid-cols-3 gap-2">
+      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
         <Action onClick={() => download(rec)} icon={<Download className="h-4 w-4" />}>Download</Action>
         <Action onClick={share} icon={<Share2 className="h-4 w-4" />}>Share</Action>
         {rec.saved ? (
           <Action onClick={onClose} disabled icon={<Check className="h-4 w-4" />}>Saved</Action>
         ) : (
-          <button onClick={() => onSaved(rec)} className="rounded-full bg-primary py-3 text-sm font-bold text-primary-foreground">Save</button>
+          <button onClick={() => onSaved(rec)} className="app-primary w-full rounded-xl">Save</button>
         )}
       </div>
     </Sheet>
@@ -902,7 +902,7 @@ function AudioHelp({ onClose }: { onClose: () => void }) {
     <Sheet title="Cleaner phone audio" onClose={onClose}>
       <ul className="space-y-3">
         {tips.map(([t, b]) => (
-          <li key={t} className="rounded-2xl bg-secondary p-4">
+          <li key={t} className="app-panel rounded-2xl p-4">
             <p className="font-bold">{t}</p>
             <p className="text-sm text-muted-foreground">{b}</p>
           </li>
