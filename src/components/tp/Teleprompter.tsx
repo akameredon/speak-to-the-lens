@@ -182,10 +182,18 @@ export default function Teleprompter() {
     }
     chunksRef.current = [];
     r.ondataavailable = (e) => e.data.size && chunksRef.current.push(e.data);
+    r.onerror = () => {
+      setRecording(false);
+      setNotice({ title: "Recording interrupted", body: "The browser reported a recording error. Review any captured take if it appears, and download it before closing." });
+    };
     r.onstop = () => {
       const fmt = r.mimeType || mime || "video/webm";
       const blob = new Blob(chunksRef.current, { type: fmt });
-      const duration = (Date.now() - startRef.current) / 1000;
+      const duration = Math.max(0, (Date.now() - startRef.current) / 1000);
+      if (!blob.size) {
+        setNotice({ title: "No video data was captured", body: "The browser stopped recording before it produced a usable video. Check camera and microphone permissions, then try a short test recording." });
+        return;
+      }
       setReview({
         id: crypto.randomUUID(),
         title: `${script.title} · Take`,
