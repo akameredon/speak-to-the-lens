@@ -14,7 +14,8 @@
     "test:watch": "vitest",
     "build:cloudflare": "bun run build",
     "preview:cloudflare": "bun run build && bunx wrangler --cwd .output/server dev",
-    "deploy:cloudflare": "bun run build && bunx wrangler --cwd .output/server deploy"
+    "deploy:cloudflare": "bunx wrangler --cwd .output/server deploy",
+    "deploy:cloudflare:local": "bun run build:cloudflare && bun run deploy:cloudflare"
   },
   "overrides": {
     "rolldown": "1.2.1"
