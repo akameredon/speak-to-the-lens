@@ -76,15 +76,15 @@ This project is configured for Vercel using the existing TanStack Start + Nitro 
 
 ### AI Script Writer environment
 
-The AI writer and script polisher use the Google Gemini Developer API:
+The AI writer and script polisher use the Groq API:
 
-- Variable name: `GEMINI_API_KEY`
+- Variable name: `GROQ_API_KEY`
 - Add it in Vercel → Project Settings → Environment Variables.
-- Enable it for Production, Preview, and Development as needed.
-- The server calls the stable `gemini-3.8-flash` model.
+- Enable it for Preview, Development, and Production only when ready.
+- The server uses Groq's production `openai/gpt-oss-20b` model through its OpenAI-compatible chat completions API.
 - Redeploy after adding or changing the variable.
 
-Use `.env.example` as a reference only. Never commit the real key or expose it in browser code. Camera, scripts, and recordings remain on the device; only AI writing requests are sent to Gemini. Free-tier availability and quotas are controlled by Google and can change.
+Use `.env.example` as a reference only. Never commit the real key or expose it in browser code. Camera, scripts, and recordings remain on the device; only AI writing requests are sent to Groq. Groq applies account-specific usage limits; check the Groq Console for the current limits on your account.
 
 ### Local development and checks
 
