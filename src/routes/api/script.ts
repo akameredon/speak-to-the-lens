@@ -41,7 +41,7 @@ export const Route = createFileRoute("/api/script")({
 
         const apiKey = process.env.GROQ_API_KEY;
         if (!apiKey) {
-          return new Response("AI is not configured. Add GROQ_API_KEY in Vercel project settings.", { status: 503 });
+          return new Response("AI is not configured. Add GROQ_API_KEY in Cloudflare Worker Secrets.", { status: 503 });
         }
 
         const d = parsed.data;

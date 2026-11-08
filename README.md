@@ -98,3 +98,21 @@ bun run build
 
 The script library migrates the previous `tp.script` local save into the multi-script library on the same device. Existing recording entries in IndexedDB are retained.
 
+## Cloudflare Workers trial
+
+This branch is configured for a separate Cloudflare Workers test deployment. It uses the existing Nitro dependency with the `cloudflare-module` preset; it does not change the production Vercel configuration on `main`.
+
+- Worker name: `speak-to-the-lens-cloudflare-trial`
+- Build: `bun run build:cloudflare`
+- Local Worker preview: `bun run preview:cloudflare`
+- Deploy the already-built trial Worker: `bun run deploy:cloudflare`
+- Build and deploy locally in one command: `bun run deploy:cloudflare:local`
+- The deployment commands use `bunx` to run Wrangler without adding a new dependency or changing `bun.lock`.
+
+### Configure Groq securely
+
+After the trial Worker has been deployed once, open Cloudflare Dashboard → Workers & Pages → `speak-to-the-lens-cloudflare-trial` → Settings → Variables and Secrets. Add `GROQ_API_KEY` as a **Secret**, then deploy the updated Worker. Do not put the key in `wrangler.jsonc`, GitHub, or browser code.
+
+The server reads this secret through `process.env.GROQ_API_KEY`. Cloudflare Workers exposes secrets through `process.env` when Node.js compatibility is enabled and the compatibility date is current.
+
+For Cloudflare Workers Builds, connect this repository to a separate Worker named `speak-to-the-lens-cloudflare-trial`, set its production branch to `hosting/cloudflare-workers-trial`, use `bun run build:cloudflare` as the build command, and `bun run deploy:cloudflare` as the deploy command. Keep the production Vercel branch separate. This is a test deployment only; do not attach the production domain or switch DNS until the Worker and the iPhone camera/recording flows have passed QA.
