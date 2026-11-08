@@ -104,10 +104,10 @@ export default function Teleprompter() {
     (reason) => {
       setActiveMode("auto");
       toast(reason === "not-allowed" || reason === "service-not-allowed"
-        ? "Microphone blocked for voice following — switched to auto scroll."
+        ? "Microphone blocked for voice following — switched to tap to advance."
         : reason === "unsupported"
-          ? "Voice following isn't supported here — using auto scroll."
-          : "Lost your voice — auto scroll is keeping you moving.");
+          ? "Voice following isn't supported here — using tap to advance."
+          : "Voice following stopped — tap to advance is ready.");
     },
   );
 
@@ -426,7 +426,8 @@ function FilmSurface(p: {
         {activeDelivery && (
           <div className="space-y-1 px-4 pb-2">
             <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold">
-              <span className="rounded-full bg-accent px-2 py-1 text-accent-foreground">{activeDelivery.pace}</span>
+              <span className="rounded-full bg-accent px-2 py-1 text-accent-foreground">Group {activeIndex + 1} / {p.deliveryMap?.segments.length}</span>
+              <span className="rounded-full bg-scrim px-2 py-1">{activeDelivery.pace}</span>
             <span className="rounded-full bg-scrim px-2 py-1">{activeDelivery.emotion}</span>
             <span className="rounded-full bg-scrim px-2 py-1">Pitch: {activeDelivery.pitch}</span>
             <span className="rounded-full bg-scrim px-2 py-1">Volume: {activeDelivery.volume}</span>
@@ -481,10 +482,10 @@ function FilmSurface(p: {
 
       {/* thumb controls */}
       <div className="absolute inset-x-0 bottom-0 space-y-3 bg-gradient-to-t from-background/90 to-transparent px-4 pb-4 pt-10">
-        {p.activeMode === "manual" && p.deliveryMap && (
+        {p.activeMode === "manual" && (
           <div className="flex justify-center">
             <button onClick={p.onAdvance} disabled={p.pos >= p.words.length} className="rounded-full border border-white/15 bg-background/75 px-6 py-2.5 text-sm font-bold shadow-lg backdrop-blur-xl disabled:opacity-40">
-              Done · Next phrase <span aria-hidden="true">→</span>
+              Done · Next {p.deliveryMap ? "phrase" : "sentence"} <span aria-hidden="true">→</span>
             </button>
           </div>
         )}
@@ -492,9 +493,9 @@ function FilmSurface(p: {
           <Control label="Size" value={`${p.profile.fontSize}px`}>
             <input type="range" min={22} max={56} value={p.profile.fontSize} onChange={(e) => p.upd({ fontSize: +e.target.value })} className="w-full accent-[var(--accent)]" aria-label="Font size" />
           </Control>
-          <Control label="Speed" value={String(p.profile.speed)}>
+          {p.activeMode === "auto" && <Control label="Speed" value={String(p.profile.speed)}>
             <input type="range" min={1} max={10} value={p.profile.speed} onChange={(e) => p.upd({ speed: +e.target.value })} className="w-full accent-[var(--accent)]" aria-label="Scroll speed" />
-          </Control>
+          </Control>}
           <div className="flex flex-col gap-1">
             <button aria-label="Previous phrase" onClick={p.onPrevious} className="rounded-full bg-secondary p-1.5"><ArrowUp className="h-4 w-4" /></button>
             <button aria-label="Next phrase" onClick={p.onAdvance} className="rounded-full bg-secondary p-1.5"><ArrowDown className="h-4 w-4" /></button>
