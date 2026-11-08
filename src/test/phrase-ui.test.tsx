@@ -5,7 +5,7 @@ import { FilmSurface } from "@/components/tp/Teleprompter";
 import { nextDeliveryPosition, previousDeliveryPosition, type DeliveryMap } from "@/lib/delivery";
 import type { Profile } from "@/lib/store";
 
-const words = "Good morning. Welcome to the team. Let’s begin.".split(/\\s+/);
+const words = "Good morning. Welcome to the team. Let’s begin.".split(/\s+/);
 const map: DeliveryMap = {
   style: "formal",
   audience: "staff",
