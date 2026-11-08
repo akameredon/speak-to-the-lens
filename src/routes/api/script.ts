@@ -3,13 +3,18 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { streamText } from "ai";
 import { z } from "zod";
 
-const Body = z.object({
-  kind: z.enum(["write", "polish"]),
-  topic: z.string().max(500).optional(),
-  tone: z.string().max(60).optional(),
-  length: z.enum(["30s", "60s", "2m"]).optional(),
-  text: z.string().max(8000).optional(),
-});
+const Body = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("write"),
+    topic: z.string().trim().min(1).max(500),
+    tone: z.string().trim().max(60).optional(),
+    length: z.enum(["30s", "60s", "2m"]).optional(),
+  }),
+  z.object({
+    kind: z.literal("polish"),
+    text: z.string().trim().min(1).max(8000),
+  }),
+]);
 
 const WORDS = { "30s": 75, "60s": 150, "2m": 300 } as const;
 
@@ -21,7 +26,7 @@ export const Route = createFileRoute("/api/script")({
         if (!parsed.success) return new Response("Invalid request", { status: 400 });
         const d = parsed.data;
         const apiKey = process.env.LOVABLE_API_KEY;
-        if (!apiKey) return new Response("AI is not configured", { status: 500 });
+        if (!apiKey) return new Response("AI is not configured. Add LOVABLE_API_KEY in Vercel project settings.", { status: 503 });
 
         let runId = request.headers.get("X-Lovable-AIG-Run-ID")?.trim() || undefined;
         const provider = createOpenAI({
@@ -80,7 +85,7 @@ export const Route = createFileRoute("/api/script")({
             }
           },
         });
-        return new Response(stream, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+        return new Response(stream, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } });
       },
     },
   },
