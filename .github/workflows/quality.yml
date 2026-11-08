@@ -37,9 +37,13 @@ jobs:
           src/routes/api/script.ts
           src/routes/api/delivery.ts
           src/lib/delivery.ts
+          src/lib/ai-guard.ts
           src/test/delivery.test.ts
           src/test/store.test.ts
           src/test/follow.test.ts
+          src/test/ai-guard.test.ts
+          src/test/speech.test.ts
+          src/test/recordings.test.ts
           --rule 'prettier/prettier: off'
 
       - name: Build for production
