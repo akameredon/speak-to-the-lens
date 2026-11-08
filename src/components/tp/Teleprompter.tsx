@@ -367,6 +367,24 @@ function FilmSurface(p: {
   const boxRef = useRef<HTMLDivElement>(null);
   const curRef = useRef<HTMLSpanElement>(null);
   const activeDelivery = currentDeliverySegment(p.deliveryMap, p.pos);
+  const activeIndex = p.deliveryMap?.segments.findIndex((segment) => segment === activeDelivery) ?? -1;
+  const upcomingDelivery = activeIndex >= 0 ? p.deliveryMap?.segments[activeIndex + 1] : undefined;
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+      if (!p.running || p.activeMode !== "manual") return;
+      if (event.code === "Space" || event.code === "ArrowRight") {
+        event.preventDefault();
+        p.onAdvance();
+      } else if (event.code === "ArrowLeft") {
+        event.preventDefault();
+        p.onPrevious();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [p.running, p.activeMode, p.onAdvance, p.onPrevious]);
   useEffect(() => {
     const box = boxRef.current, el = curRef.current;
     if (!box || !el) return;
@@ -406,13 +424,21 @@ function FilmSurface(p: {
           )}
         </div>
         {activeDelivery && (
-          <div className="flex flex-wrap items-center gap-2 px-4 pb-2 text-[11px] font-semibold">
-            <span className="rounded-full bg-accent px-2 py-1 text-accent-foreground">{activeDelivery.pace}</span>
+          <div className="space-y-1 px-4 pb-2">
+            <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+              <span className="rounded-full bg-accent px-2 py-1 text-accent-foreground">{activeDelivery.pace}</span>
             <span className="rounded-full bg-scrim px-2 py-1">{activeDelivery.emotion}</span>
             <span className="rounded-full bg-scrim px-2 py-1">Pitch: {activeDelivery.pitch}</span>
             <span className="rounded-full bg-scrim px-2 py-1">Volume: {activeDelivery.volume}</span>
             <span className="text-muted-foreground">{activeDelivery.cue}</span>
-            {activeDelivery.pauseAfterMs > 0 && <span className="text-muted-foreground">Pause {activeDelivery.pauseAfterMs} ms after phrase</span>}
+              {activeDelivery.pauseAfterMs > 0 && <span className="text-muted-foreground">Pause {activeDelivery.pauseAfterMs} ms after phrase</span>}
+            </div>
+            {upcomingDelivery && (
+              <div className="truncate text-[11px] text-foreground/65">
+                <span className="mr-2 font-bold uppercase tracking-wider text-accent">Next</span>
+                {p.words.slice(upcomingDelivery.startWord, upcomingDelivery.endWord).join(" ")}
+              </div>
+            )}
           </div>
         )}
         <div
